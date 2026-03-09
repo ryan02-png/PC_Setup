@@ -10,46 +10,33 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# --- GLOBAL SETTINGS ---
-$FontTitle = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
-$FontText = New-Object System.Drawing.Font("Segoe UI", 10)
+# --- GLOBAL FORM SETUP ---
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Ryan Standardization"
-$form.Size = "450,500"
+$form.Size = "450,550"
 $form.StartPosition = "CenterScreen"
 $form.BackColor = "White"
+$form.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 
-# Function to Clear Form and Add Back Button
-function Clear-And-Back {
-    param($BackTarget)
-    $form.Controls.Clear()
-    $btnBack = New-Object System.Windows.Forms.Button
-    $btnBack.Text = "← Back"
-    $btnBack.Location = "10,10"
-    $btnBack.Size = "70,30"
-    $btnBack.Font = $FontText
-    $btnBack.FlatStyle = "Flat"
-    $btnBack.Add_Click({ &$BackTarget })
-    $form.Controls.Add($btnBack)
-}
+# --- NAVIGATION FUNCTIONS ---
 
-# --- MENU 1: MAIN MENU ---
 function Show-Main-Menu {
     $form.Controls.Clear()
     
     $lbl = New-Object System.Windows.Forms.Label
-    $lbl.Text = "Standardization Toolkit"; $lbl.Font = $FontTitle; $lbl.Location = "0,50"; $lbl.Size = "450,30"; $lbl.TextAlign = "MiddleCenter"
+    $lbl.Text = "Ryan Standardization"; $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
+    $lbl.Location = "0,40"; $lbl.Size = "450,40"; $lbl.TextAlign = "MiddleCenter"
 
     $btn1 = New-Object System.Windows.Forms.Button
-    $btn1.Text = "1. Local Admin User Setup"; $btn1.Location = "75,100"; $btn1.Size = "300,50"; $btn1.Font = $FontText; $btn1.FlatStyle = "Flat"
+    $btn1.Text = "1. Local Admin User Setup"; $btn1.Location = "75,110"; $btn1.Size = "300,50"; $btn1.FlatStyle = "Flat"
     $btn1.Add_Click({ Start-Process "lusrmgr.msc" })
 
     $btn2 = New-Object System.Windows.Forms.Button
-    $btn2.Text = "2. GP Edit Setup"; $btn2.Location = "75,170"; $btn2.Size = "300,50"; $btn2.Font = $FontText; $btn2.FlatStyle = "Flat"
+    $btn2.Text = "2. GP Edit Setup"; $btn2.Location = "75,180"; $btn2.Size = "300,50"; $btn2.FlatStyle = "Flat"
     $btn2.Add_Click({ Show-GPO-Menu })
 
     $btn3 = New-Object System.Windows.Forms.Button
-    $btn3.Text = "3. Install Apps"; $btn3.Location = "75,240"; $btn3.Size = "300,50"; $btn3.Font = $FontText; $btn3.FlatStyle = "Flat"
+    $btn3.Text = "3. Install Apps"; $btn3.Location = "75,250"; $btn3.Size = "300,50"; $btn3.FlatStyle = "Flat"
     $btn3.Add_Click({ 
         Write-Host "Installing Apps..." -ForegroundColor Yellow
         winget install --id Google.Chrome --silent --accept-package-agreements
@@ -58,73 +45,79 @@ function Show-Main-Menu {
     })
 
     $form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3))
+    $form.Refresh()
 }
 
-# --- MENU 2: GPO SELECTION ---
 function Show-GPO-Menu {
-    Clear-And-Back "Show-Main-Menu"
+    $form.Controls.Clear()
+    
+    # Back Button
+    $btnBack = New-Object System.Windows.Forms.Button
+    $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
+    $btnBack.Add_Click({ Show-Main-Menu })
 
     $btnComp = New-Object System.Windows.Forms.Button
-    $btnComp.Text = "Computer Configuration"; $btnComp.Location = "75,100"; $btnComp.Size = "300,50"; $btnComp.Font = $FontText; $btnComp.FlatStyle = "Flat"
+    $btnComp.Text = "Computer Configuration"; $btnComp.Location = "75,110"; $btnComp.Size = "300,50"; $btnComp.FlatStyle = "Flat"
     $btnComp.Add_Click({ Start-Process "secpol.msc" })
 
     $btnUser = New-Object System.Windows.Forms.Button
-    $btnUser.Text = "User Configuration"; $btnUser.Location = "75,170"; $btnUser.Size = "300,50"; $btnUser.Font = $FontText; $btnUser.FlatStyle = "Flat"
+    $btnUser.Text = "User Configuration"; $btnUser.Location = "75,180"; $btnUser.Size = "300,50"; $btnUser.FlatStyle = "Flat"
     $btnUser.Add_Click({ Show-User-Config })
 
-    $form.Controls.AddRange(@($btnComp, $btnUser))
+    $form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
+    $form.Refresh()
 }
 
-# --- MENU 3: USER CONFIG CHECKBOXES ---
 function Show-User-Config {
-    Clear-And-Back "Show-GPO-Menu"
+    $form.Controls.Clear()
+
+    # Back Button
+    $btnBack = New-Object System.Windows.Forms.Button
+    $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
+    $btnBack.Add_Click({ Show-GPO-Menu })
 
     $panel = New-Object System.Windows.Forms.Panel
-    $panel.Location = "50,60"; $panel.Size = "350,300"; $panel.AutoScroll = $true
+    $panel.Location = "50,70"; $panel.Size = "350,320"; $panel.AutoScroll = $true
 
-    $options = @(
-        "Remove Shutdown Button", "Hide Search", "Remove Notification Center", 
-        "Remove Pinned Apps", "Prevent Wallpaper Changes", 
-        "Disable USB Storage (User)", "Disable Microsoft Store (User)"
-    )
-
-    $y = 10
+    $opts = @("Remove Shutdown Button", "Hide Search", "Remove Notification Center", "Remove Pinned Apps", "Prevent Wallpaper Changes", "Disable USB Storage (User)", "Disable Microsoft Store (User)")
     $checks = @()
-    foreach ($opt in $options) {
-        $chk = New-Object System.Windows.Forms.CheckBox
-        $chk.Text = $opt; $chk.Location = "10,$y"; $chk.Size = "300,30"; $chk.Font = $FontText
-        $panel.Controls.Add($chk)
-        $checks += $chk
-        $y += 35
+    $y = 10
+    foreach ($text in $opts) {
+        $c = New-Object System.Windows.Forms.CheckBox
+        $c.Text = $text; $c.Location = "10,$y"; $c.Size = "280,30"
+        $panel.Controls.Add($c)
+        $checks += $c
+        $y += 40
     }
 
     $btnConfirm = New-Object System.Windows.Forms.Button
-    $btnConfirm.Text = "Confirm Changes"; $btnConfirm.Location = "150,400"; $btnConfirm.Size = "150,40"; $btnConfirm.BackColor = "AliceBlue"; $btnConfirm.FlatStyle = "Flat"
-    
+    $btnConfirm.Text = "Confirm Changes"; $btnConfirm.Location = "125,420"; $btnConfirm.Size = "200,45"; $btnConfirm.BackColor = "LightGray"; $btnConfirm.FlatStyle = "Flat"
     $btnConfirm.Add_Click({
-        $polExplorer = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-        $polStore    = "HKCU:\Software\Policies\Microsoft\WindowsStore"
-        $polRemov    = "HKCU:\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
+        # REGISTRY PATHS
+        $polExp = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+        $polSto = "HKCU:\Software\Policies\Microsoft\WindowsStore"
+        $polRem = "HKCU:\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
+        
+        if (!(Test-Path $polExp)) { New-Item $polExp -Force | Out-Null }
+        if (!(Test-Path $polSto)) { New-Item $polSto -Force | Out-Null }
+        if (!(Test-Path $polRem)) { New-Item $polRem -Force | Out-Null }
 
-        if (!(Test-Path $polExplorer)) { New-Item $polExplorer -Force | Out-Null }
-        if (!(Test-Path $polStore))    { New-Item $polStore -Force | Out-Null }
-        if (!(Test-Path $polRemov))    { New-Item $polRemov -Force | Out-Null }
-
-        if ($checks[0].Checked) { Set-ItemProperty $polExplorer -Name "NoClose" -Value 1 -Type DWord }
+        if ($checks[0].Checked) { Set-ItemProperty $polExp -Name "NoClose" -Value 1 -Type DWord }
         if ($checks[1].Checked) { Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value 0 -Type DWord }
-        if ($checks[2].Checked) { Set-ItemProperty $polExplorer -Name "DisableNotificationCenter" -Value 1 -Type DWord }
-        if ($checks[5].Checked) { Set-ItemProperty $polRemov -Name "Deny_All" -Value 1 -Type DWord }
-        if ($checks[6].Checked) { Set-ItemProperty $polStore -Name "RemoveWindowsStore" -Value 1 -Type DWord }
+        if ($checks[2].Checked) { Set-ItemProperty $polExp -Name "DisableNotificationCenter" -Value 1 -Type DWord }
+        if ($checks[5].Checked) { Set-ItemProperty $polRem -Name "Deny_All" -Value 1 -Type DWord }
+        if ($checks[6].Checked) { Set-ItemProperty $polSto -Name "RemoveWindowsStore" -Value 1 -Type DWord }
 
         gpupdate /force
         Stop-Process -Name explorer -Force
-        [System.Windows.Forms.MessageBox]::Show("User Policies Applied!")
+        [System.Windows.Forms.MessageBox]::Show("Standardization Complete!")
         Show-Main-Menu
     })
 
-    $form.Controls.AddRange(@($panel, $btnConfirm))
+    $form.Controls.AddRange(@($btnBack, $panel, $btnConfirm))
+    $form.Refresh()
 }
 
-# Start the App
+# --- INITIAL LAUNCH ---
 Show-Main-Menu
 $form.ShowDialog()
