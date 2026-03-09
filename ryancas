@@ -1,38 +1,68 @@
+# 1. Admin Check
+if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    [System.Windows.Forms.MessageBox]::Show("Please run PowerShell as Administrator!")
+    break
+}
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# --- CREATE THE WINDOW ---
+# --- UI SETUP ---
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "IT Helpdesk Deployment Tool"
-$form.Size = New-Object System.Drawing.Size(400,300)
+$form.Text = "Ryan Standardization"
+$form.Size = New-Object System.Drawing.Size(400,400)
 $form.StartPosition = "CenterScreen"
+$form.BackColor = "White"
 
-# --- BUTTON 1: STANDARDIZE ---
-$btnStd = New-Object System.Windows.Forms.Button
-$btnStd.Location = New-Object System.Drawing.Point(50,30)
-$btnStd.Size = New-Object System.Drawing.Size(300,40)
-$btnStd.Text = "1. Standardize PC (Bloatware/Settings)"
-$btnStd.Add_Click({
-    Write-Host "Running Standardization..." -ForegroundColor Cyan
-    # Add your code here: e.g., Set-ExecutionPolicy, Rename PC, etc.
-    [System.Windows.Forms.MessageBox]::Show("Standardization Complete!")
+# --- 1. LOCAL USER MANAGEMENT ---
+$btnUser = New-Object System.Windows.Forms.Button
+$btnUser.Location = New-Object System.Drawing.Point(50,30)
+$btnUser.Size = New-Object System.Drawing.Size(300,50)
+$btnUser.Text = "1. Create Local Admin User"
+$btnUser.Add_Click({
+    $username = Read-Host "Enter New Username"
+    $password = Read-Host "Enter Password" -AsSecureString
+    if ($username) {
+        New-LocalUser -Name $username -Password $password -FullName "Standardized User" -Description "Created via Ryan Tool"
+        Add-LocalGroupMember -Group "Administrators" -Member $username
+        [System.Windows.Forms.MessageBox]::Show("User $username created and added to Administrators!")
+    }
 })
 
-# --- BUTTON 2: INSTALL APPS ---
+# --- 2. GPEDIT MANAGEMENT ---
+$btnGPO = New-Object System.Windows.Forms.Button
+$btnGPO.Location = New-Object System.Drawing.Point(50,100)
+$btnGPO.Size = New-Object System.Drawing.Size(300,50)
+$btnGPO.Text = "2. Run GPUpdate & Open GPEdit"
+$btnGPO.Add_Click({
+    Write-Host "Refreshing Policies..." -ForegroundColor Cyan
+    gpupdate /force
+    gpedit.msc
+})
+
+# --- 3. APPS INSTALLATION ---
 $btnApps = New-Object System.Windows.Forms.Button
-$btnApps.Location = New-Object System.Drawing.Point(50,80)
-$btnApps.Size = New-Object System.Drawing.Size(300,40)
-$btnApps.Text = "2. Install Standard Apps (Winget)"
+$btnApps.Location = New-Object System.Drawing.Point(50,170)
+$btnApps.Size = New-Object System.Drawing.Size(300,50)
+$btnApps.Text = "3. Install Standard Apps (Winget)"
 $btnApps.Add_Click({
-    Write-Host "Installing Chrome, VLC, and VS Code..." -ForegroundColor Yellow
+    Write-Host "Installing Chrome and VLC..." -ForegroundColor Yellow
     winget install --id Google.Chrome --silent --accept-package-agreements
     winget install --id VideoLAN.VLC --silent
-    [System.Windows.Forms.MessageBox]::Show("Apps Installed successfully!")
+    [System.Windows.Forms.MessageBox]::Show("Basic apps installed!")
 })
 
-# --- ADD TO FORM ---
-$form.Controls.Add($btnStd)
-$form.Controls.Add($btnApps)
+# --- 4. CUSTOMIZABLE SETUP ---
+$btnCustom = New-Object System.Windows.Forms.Button
+$btnCustom.Location = New-Object System.Drawing.Point(50,240)
+$btnCustom.Size = New-Object System.Drawing.Size(300,50)
+$btnCustom.Text = "4. Customizable Setup (Time/Region)"
+$btnCustom.Add_Click({
+    Set-TimeZone -Id "Singapore Standard Time"
+    Set-Culture en-PH
+    [System.Windows.Forms.MessageBox]::Show("Timezone set to Manila!")
+})
 
-# --- SHOW IT ---
+# Add controls to form
+$form.Controls.AddRange(@($btnUser, $btnGPO, $btnApps, $btnCustom))
 $form.ShowDialog()
