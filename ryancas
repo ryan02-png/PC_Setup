@@ -13,53 +13,59 @@ Add-Type -AssemblyName System.Drawing
 # --- UI SETUP ---
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Ryan Standardization"
-$form.Size = New-Object System.Drawing.Size(400,320)
+$form.Size = New-Object System.Drawing.Size(400,280)
 $form.StartPosition = "CenterScreen"
 $form.BackColor = "White"
 
 # --- 1. LOCAL ADMIN USER SETUP ---
 $btnUser = New-Object System.Windows.Forms.Button
 $btnUser.Location = New-Object System.Drawing.Point(50,30)
-$btnUser.Size = New-Object System.Drawing.Size(300,50)
+$btnUser.Size = New-Object System.Drawing.Size(300,45)
 $btnUser.Text = "1. Local Admin User Setup"
 $btnUser.Cursor = [System.Windows.Forms.Cursors]::Hand
 $btnUser.Add_Click({
     $username = Read-Host "Enter New Admin Username"
     $password = Read-Host "Enter Password" -AsSecureString
     if ($username) {
-        New-LocalUser -Name $username -Password $password -FullName "Admin User" -Description "Created via Ryan Standardization Tool"
-        Add-LocalGroupMember -Group "Administrators" -Member $username
-        [System.Windows.Forms.MessageBox]::Show("User $username created and promoted to Administrator!")
+        try {
+            New-LocalUser -Name $username -Password $password -FullName "Admin User" -Description "Created via Ryan Standardization Tool"
+            Add-LocalGroupMember -Group "Administrators" -Member $username
+            [System.Windows.Forms.MessageBox]::Show("User $username created and promoted to Administrator!")
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show("Error creating user. Check if the username already exists.")
+        }
     }
 })
 
 # --- 2. GP EDIT SETUP ---
 $btnGPO = New-Object System.Windows.Forms.Button
-$btnGPO.Location = New-Object System.Drawing.Point(50,100)
-$btnGPO.Size = New-Object System.Drawing.Size(300,50)
+$btnGPO.Location = New-Object System.Drawing.Point(50,90)
+$btnGPO.Size = New-Object System.Drawing.Size(300,45)
 $btnGPO.Text = "2. GP Edit Setup"
 $btnGPO.Cursor = [System.Windows.Forms.Cursors]::Hand
 $btnGPO.Add_Click({
     Write-Host "Forcing Group Policy Update..." -ForegroundColor Cyan
     gpupdate /force
     Write-Host "Opening Group Policy Editor..." -ForegroundColor Green
-    gpedit.msc
+    # This will open the native GPEdit on Windows Pro
+    Start-Process "gpedit.msc"
 })
 
 # --- 3. INSTALL APPS ---
 $btnApps = New-Object System.Windows.Forms.Button
-$btnApps.Location = New-Object System.Drawing.Point(50,170)
-$btnApps.Size = New-Object System.Drawing.Size(300,50)
+$btnApps.Location = New-Object System.Drawing.Point(50,150)
+$btnApps.Size = New-Object System.Drawing.Size(300,45)
 $btnApps.Text = "3. Install Apps"
 $btnApps.Cursor = [System.Windows.Forms.Cursors]::Hand
 $btnApps.Add_Click({
-    Write-Host "Installing standard applications..." -ForegroundColor Yellow
-    # Common apps used in Philippine IT offices
+    Write-Host "Checking for winget and installing apps..." -ForegroundColor Yellow
+    # Installs standard IT toolkit
     winget install --id Google.Chrome --silent --accept-package-agreements
     winget install --id VideoLAN.VLC --silent
     winget install --id 7zip.7zip --silent
-    [System.Windows.Forms.MessageBox]::Show("App installations started (Chrome, VLC, 7-Zip).")
+    [System.Windows.Forms.MessageBox]::Show("Installation started for Chrome, VLC, and 7-Zip.")
 })
 
+# Add controls to form
 $form.Controls.AddRange(@($btnUser, $btnGPO, $btnApps))
 $form.ShowDialog()
