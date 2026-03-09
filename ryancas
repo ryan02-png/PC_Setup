@@ -98,8 +98,45 @@ function script:Show-Main-Menu {
             Start-Process powershell.exe -ArgumentList $repairCmd
         }
     })
+
+    $btn6 = New-Object System.Windows.Forms.Button
+    $btn6.Text = "🧹 Storage & Browser Cleanup"; $btn6.Location = "75,380"; $btn6.Size = "300,45"; $btn6.FlatStyle = "Flat"
+    $btn6.Add_Click({ 
+        $msg = [System.Windows.Forms.MessageBox]::Show("This will force-close browsers, delete Temp files, Cache, Browser History, AND clear the Windows Update cache. Proceed?", "Storage Cleanup", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        if ($msg -eq [System.Windows.Forms.DialogResult]::OK) {
+            Write-Host "Cleaning up system..." -ForegroundColor Yellow
+            
+            # Force close browsers so files aren't locked
+            Stop-Process -Name chrome, msedge, firefox, brave -Force -ErrorAction SilentlyContinue
+
+            # Clear System and User Temp & Prefetch
+            Remove-Item -Path "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "$env:WINDIR\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "$env:WINDIR\Prefetch\*" -Recurse -Force -ErrorAction SilentlyContinue
+
+            # Clear Windows Update Cache (SoftwareDistribution)
+            Write-Host "Clearing Windows Update Cache..." -ForegroundColor Yellow
+            Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path "$env:WINDIR\SoftwareDistribution\Download\*" -Recurse -Force -ErrorAction SilentlyContinue
+            Start-Service -Name wuauserv -ErrorAction SilentlyContinue
+
+            # Clear Browser Cache and History DB files
+            $browserPaths = @(
+                "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache\Cache_Data\*",
+                "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\History",
+                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache\Cache_Data\*",
+                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\History",
+                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Cache\Cache_Data\*",
+                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\History",
+                "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cache2\*"
+            )
+            foreach ($path in $browserPaths) { Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue }
+
+            [System.Windows.Forms.MessageBox]::Show("Cleanup complete! System Temp, Browser Data, and Windows Update cache have been wiped.")
+        }
+    })
     
-    $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3, $btn4, $btn5))
+    $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3, $btn4, $btn5, $btn6))
 }
 
 # --- FUNCTION 2: GPO MENU ---
