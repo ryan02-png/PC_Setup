@@ -98,22 +98,21 @@ function script:Show-Install-Apps {
     $btnBack.Add_Click({ script:Show-Main-Menu }) 
 
     $btnChrome = New-Object System.Windows.Forms.Button
-    $btnChrome.Text = "Install Chrome"; $btnChrome.Location = "75,90"; $btnChrome.Size = "300,50"; $btnChrome.FlatStyle = "Flat"
+    $btnChrome.Text = "Install Chrome"; $btnChrome.Location = "75,70"; $btnChrome.Size = "300,45"; $btnChrome.FlatStyle = "Flat"
     $btnChrome.Add_Click({ script:Install-App "Chrome" "Google.Chrome" })
 
     $btnFirefox = New-Object System.Windows.Forms.Button
-    $btnFirefox.Text = "Install Firefox"; $btnFirefox.Location = "75,160"; $btnFirefox.Size = "300,50"; $btnFirefox.FlatStyle = "Flat"
+    $btnFirefox.Text = "Install Firefox"; $btnFirefox.Location = "75,125"; $btnFirefox.Size = "300,45"; $btnFirefox.FlatStyle = "Flat"
     $btnFirefox.Add_Click({ script:Install-App "Firefox" "Mozilla.Firefox" })
 
     $btnAnyDesk = New-Object System.Windows.Forms.Button
-    $btnAnyDesk.Text = "Install AnyDesk (5.4.2)"; $btnAnyDesk.Location = "75,230"; $btnAnyDesk.Size = "300,50"; $btnAnyDesk.FlatStyle = "Flat"
+    $btnAnyDesk.Text = "Install AnyDesk (5.4.2)"; $btnAnyDesk.Location = "75,180"; $btnAnyDesk.Size = "300,45"; $btnAnyDesk.FlatStyle = "Flat"
     $btnAnyDesk.Add_Click({ 
         $result = [System.Windows.Forms.MessageBox]::Show("Install AnyDesk (5.4.2)?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
         
         if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
             Write-Host "Downloading AnyDesk 5.4.2 from GitHub..." -ForegroundColor Cyan
             
-            # Using your exact link
             $directUrl = "https://github.com/ryan02-png/PC_Setup/raw/refs/heads/main/anydesk-5-4-2.exe" 
             $tempExe = "$env:TEMP\AnyDesk542.exe"
             
@@ -139,10 +138,14 @@ function script:Show-Install-Apps {
     })
 
     $btnMicroSIP = New-Object System.Windows.Forms.Button
-    $btnMicroSIP.Text = "Install MicroSIP"; $btnMicroSIP.Location = "75,300"; $btnMicroSIP.Size = "300,50"; $btnMicroSIP.FlatStyle = "Flat"
+    $btnMicroSIP.Text = "Install MicroSIP"; $btnMicroSIP.Location = "75,235"; $btnMicroSIP.Size = "300,45"; $btnMicroSIP.FlatStyle = "Flat"
     $btnMicroSIP.Add_Click({ script:Install-App "MicroSIP" "MicroSIP.MicroSIP" })
 
-    $script:form.Controls.AddRange(@($btnBack, $btnChrome, $btnFirefox, $btnAnyDesk, $btnMicroSIP))
+    $btnOffice = New-Object System.Windows.Forms.Button
+    $btnOffice.Text = "Install Microsoft Office (M365)"; $btnOffice.Location = "75,290"; $btnOffice.Size = "300,45"; $btnOffice.FlatStyle = "Flat"
+    $btnOffice.Add_Click({ script:Install-App "Microsoft Office" "Microsoft.Office" })
+
+    $script:form.Controls.AddRange(@($btnBack, $btnChrome, $btnFirefox, $btnAnyDesk, $btnMicroSIP, $btnOffice))
 }
 
 # --- START ---
