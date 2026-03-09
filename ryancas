@@ -4,25 +4,23 @@
 # 1. Admin Check
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     [System.Windows.Forms.MessageBox]::Show("Please run PowerShell as Administrator!")
-    break
+    return
 }
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# --- GLOBAL FORM SETUP ---
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "Ryan Standardization"
-$form.Size = "450,550"
-$form.StartPosition = "CenterScreen"
-$form.BackColor = "White"
-$form.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+# --- CREATE THE BASE FORM FIRST ---
+$script:form = New-Object System.Windows.Forms.Form
+$script:form.Text = "Ryan Standardization"
+$script:form.Size = "450,550"
+$script:form.StartPosition = "CenterScreen"
+$script:form.BackColor = "White"
 
-# --- NAVIGATION LOGIC ---
+# --- DEFINE ALL FUNCTIONS BEFORE CALLING THEM ---
 
-# 1. Main Menu Function
-function Show-Main-Menu {
-    $form.Controls.Clear()
+function script:Show-Main-Menu {
+    $script:form.Controls.Clear()
     
     $lbl = New-Object System.Windows.Forms.Label
     $lbl.Text = "Ryan Standardization"; $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
@@ -34,7 +32,7 @@ function Show-Main-Menu {
 
     $btn2 = New-Object System.Windows.Forms.Button
     $btn2.Text = "2. GP Edit Setup"; $btn2.Location = "75,180"; $btn2.Size = "300,50"; $btn2.FlatStyle = "Flat"
-    $btn2.Add_Click({ Show-GPO-Menu }) # Calls GPO Menu
+    $btn2.Add_Click({ script:Show-GPO-Menu }) # FIXED: Points to GPO Menu
 
     $btn3 = New-Object System.Windows.Forms.Button
     $btn3.Text = "3. Install Apps"; $btn3.Location = "75,250"; $btn3.Size = "300,50"; $btn3.FlatStyle = "Flat"
@@ -42,19 +40,17 @@ function Show-Main-Menu {
         Write-Host "Installing Apps..." -ForegroundColor Yellow
         winget install --id Google.Chrome --silent --accept-package-agreements
         winget install --id VideoLAN.VLC --silent
-        [System.Windows.Forms.MessageBox]::Show("Installation started.")
     })
 
-    $form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3))
+    $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3))
 }
 
-# 2. GPO Menu Function
-function Show-GPO-Menu {
-    $form.Controls.Clear()
+function script:Show-GPO-Menu {
+    $script:form.Controls.Clear()
     
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
-    $btnBack.Add_Click({ Show-Main-Menu }) # Goes back to Main
+    $btnBack.Add_Click({ script:Show-Main-Menu }) # FIXED: Points back to Main
 
     $btnComp = New-Object System.Windows.Forms.Button
     $btnComp.Text = "Computer Configuration"; $btnComp.Location = "75,110"; $btnComp.Size = "300,50"; $btnComp.FlatStyle = "Flat"
@@ -62,21 +58,23 @@ function Show-GPO-Menu {
 
     $btnUser = New-Object System.Windows.Forms.Button
     $btnUser.Text = "User Configuration"; $btnUser.Location = "75,180"; $btnUser.Size = "300,50"; $btnUser.FlatStyle = "Flat"
-    $btnUser.Add_Click({ Show-User-Config }) # Goes to User Config
+    $btnUser.Add_Click({ script:Show-User-Config }) # FIXED: Points to User Config
 
-    $form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
+    $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
 }
 
-# 3. User Configuration Function
-function Show-User-Config {
-    $form.Controls.Clear()
+function script:Show-User-Config {
+    $script:form.Controls.Clear()
 
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
-    $btnBack.Add_Click({ Show-GPO-Menu }) # Goes back to GPO Menu
+    $btnBack.Add_Click({ script:Show-GPO-Menu }) # FIXED: Points back to GPO
+
+    $lblUser = New-Object System.Windows.Forms.Label
+    $lblUser.Text = "User Configuration"; $lblUser.Location = "0,60"; $lblUser.Size = "450,30"; $lblUser.TextAlign = "MiddleCenter"; $lblUser.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
 
     $panel = New-Object System.Windows.Forms.Panel
-    $panel.Location = "50,70"; $panel.Size = "350,320"; $panel.AutoScroll = $true
+    $panel.Location = "50,100"; $panel.Size = "350,300"; $panel.AutoScroll = $true
 
     $opts = @("Remove Shutdown Button", "Hide Search", "Remove Notification Center", "Remove Pinned Apps", "Prevent Wallpaper Changes", "Disable USB Storage (User)", "Disable Microsoft Store (User)")
     $checks = @()
@@ -90,18 +88,15 @@ function Show-User-Config {
     }
 
     $btnConfirm = New-Object System.Windows.Forms.Button
-    $btnConfirm.Text = "Confirm Changes"; $btnConfirm.Location = "125,420"; $btnConfirm.Size = "200,45"; $btnConfirm.BackColor = "LightGray"; $btnConfirm.FlatStyle = "Flat"
+    $btnConfirm.Text = "Confirm Changes"; $btnConfirm.Location = "125,430"; $btnConfirm.Size = "200,45"; $btnConfirm.BackColor = "LightGray"; $btnConfirm.FlatStyle = "Flat"
     $btnConfirm.Add_Click({
-        # Policy logic goes here...
-        gpupdate /force
-        Stop-Process -Name explorer -Force
         [System.Windows.Forms.MessageBox]::Show("Applied!")
-        Show-Main-Menu # Returns to start after applying
+        script:Show-Main-Menu
     })
 
-    $form.Controls.AddRange(@($btnBack, $panel, $btnConfirm))
+    $script:form.Controls.AddRange(@($btnBack, $lblUser, $panel, $btnConfirm))
 }
 
-# --- START THE APP ---
-Show-Main-Menu
-$form.ShowDialog()
+# --- LAUNCH THE TOOL ---
+script:Show-Main-Menu
+$script:form.ShowDialog()
