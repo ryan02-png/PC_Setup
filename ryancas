@@ -16,20 +16,52 @@ $script:form.Text = "Ryan Standardization"
 $script:form.Size = "450,550"
 $script:form.StartPosition = "CenterScreen"
 $script:form.BackColor = "White"
-# Using Segoe UI Emoji ensures the icons render properly in color
-$script:form.Font = New-Object System.Drawing.Font("Segoe UI Emoji", 10)
+$script:form.Font = New-Object System.Drawing.Font("Segoe UI Emoji", 9)
 
-# --- HELPER FUNCTION: INSTALLER WITH CONFIRMATION ---
+# --- HELPER FUNCTION 1: WINGET INSTALLER ---
 function script:Install-App {
     param($appName, $wingetId)
-    
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
-    
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Host "Starting installation for $appName..." -ForegroundColor Cyan
         $cmd = "winget install --id $wingetId --silent --accept-package-agreements --accept-source-agreements"
         Invoke-Expression $cmd
         [System.Windows.Forms.MessageBox]::Show("$appName installation process finished.")
+    }
+}
+
+# --- HELPER FUNCTION 2: GITHUB CUSTOM INSTALLER ---
+function script:Install-CustomApp {
+    param($appName, $fileName, $isMsi, $installArgs)
+    $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+        Write-Host "Downloading $appName from GitHub..." -ForegroundColor Cyan
+        
+        $directUrl = "https://github.com/ryan02-png/PC_Setup/raw/refs/heads/main/$fileName"
+        $tempFile = "$env:TEMP\$fileName"
+        
+        try {
+            Invoke-WebRequest -Uri $directUrl -OutFile $tempFile -UseBasicParsing
+            
+            if ((Get-Item $tempFile).Length -lt 100KB) {
+                [System.Windows.Forms.MessageBox]::Show("Download failed. Make sure you uploaded '$fileName' to your GitHub repo!")
+                return
+            }
+
+            Write-Host "Installing $appName silently..." -ForegroundColor Cyan
+            
+            if ($isMsi) {
+                $msiArgs = @("/i", "`"$tempFile`"") + $installArgs
+                Start-Process -FilePath "msiexec.exe" -ArgumentList $msiArgs -Wait -NoNewWindow
+            } else {
+                Start-Process -FilePath $tempFile -ArgumentList $installArgs -Wait -NoNewWindow
+            }
+            
+            Remove-Item -Path $tempFile -Force
+            [System.Windows.Forms.MessageBox]::Show("$appName installation finished.")
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show("Error downloading or installing $appName. Check the file link.")
+        }
     }
 }
 
@@ -82,15 +114,13 @@ function script:Show-GPO-Menu {
 # --- FUNCTION 3: USER CONFIGURATION (BLANK) ---
 function script:Show-User-Config {
     $script:form.Controls.Clear()
-    
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
     $btnBack.Add_Click({ script:Show-GPO-Menu }) 
-    
     $script:form.Controls.AddRange(@($btnBack))
 }
 
-# --- FUNCTION 4: INSTALL APPS MENU ---
+# --- FUNCTION 4: INSTALL APPS (WIDGET UI) ---
 function script:Show-Install-Apps {
     $script:form.Controls.Clear()
     
@@ -98,53 +128,72 @@ function script:Show-Install-Apps {
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
     $btnBack.Add_Click({ script:Show-Main-Menu }) 
 
-    $btnChrome = New-Object System.Windows.Forms.Button
-    $btnChrome.Text = "🌐 Install Chrome"; $btnChrome.Location = "75,70"; $btnChrome.Size = "300,45"; $btnChrome.FlatStyle = "Flat"
-    $btnChrome.Add_Click({ script:Install-App "Chrome" "Google.Chrome" })
+    # Panel to hold the grid
+    $panel = New-Object System.Windows.Forms.Panel
+    $panel.Location = "20,60"; $panel.Size = "390,430"; $panel.AutoScroll = $true
 
-    $btnFirefox = New-Object System.Windows.Forms.Button
-    $btnFirefox.Text = "🦊 Install Firefox"; $btnFirefox.Location = "75,125"; $btnFirefox.Size = "300,45"; $btnFirefox.FlatStyle = "Flat"
-    $btnFirefox.Add_Click({ script:Install-App "Firefox" "Mozilla.Firefox" })
+    # Grid Layout Variables
+    $colCount = 3
+    $btnSize = 100
+    $spacing = 15
+    $script:appIndex = 0
 
-    $btnAnyDesk = New-Object System.Windows.Forms.Button
-    $btnAnyDesk.Text = "🖥️ Install AnyDesk (5.4.2)"; $btnAnyDesk.Location = "75,180"; $btnAnyDesk.Size = "300,45"; $btnAnyDesk.FlatStyle = "Flat"
-    $btnAnyDesk.Add_Click({ 
-        $result = [System.Windows.Forms.MessageBox]::Show("Install AnyDesk (5.4.2)?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
+    # Function to create a widget tile
+    function Add-WidgetBtn ($emoji, $text, $action) {
+        $b = New-Object System.Windows.Forms.Button
         
-        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-            Write-Host "Downloading AnyDesk 5.4.2 from GitHub..." -ForegroundColor Cyan
-            $directUrl = "https://github.com/ryan02-png/PC_Setup/raw/refs/heads/main/anydesk-5-4-2.exe" 
-            $tempExe = "$env:TEMP\AnyDesk542.exe"
-            
-            try {
-                Invoke-WebRequest -Uri $directUrl -OutFile $tempExe -UseBasicParsing
-                
-                if ((Get-Item $tempExe).Length -lt 1MB) {
-                    [System.Windows.Forms.MessageBox]::Show("Download failed: File is too small to be AnyDesk. Check the link.")
-                    return
-                }
+        # Calculate X and Y based on column and row
+        $col = $script:appIndex % $colCount
+        $row = [math]::Floor($script:appIndex / $colCount)
+        
+        $x = ($col * ($btnSize + $spacing)) + 10
+        $y = ($row * ($btnSize + $spacing)) + 10
 
-                Write-Host "Installing AnyDesk silently..." -ForegroundColor Cyan
-                $installArgs = @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent")
-                Start-Process -FilePath $tempExe -ArgumentList $installArgs -Wait -NoNewWindow
-                
-                Remove-Item -Path $tempExe -Force
-                [System.Windows.Forms.MessageBox]::Show("AnyDesk 5.4.2 installation finished. Check your desktop!")
-            } catch {
-                [System.Windows.Forms.MessageBox]::Show("Error downloading or installing AnyDesk.")
-            }
-        }
-    })
+        $b.Location = "$x,$y"
+        $b.Size = "$btnSize,$btnSize"
+        $b.FlatStyle = "Flat"
+        $b.BackColor = "WhiteSmoke"
+        $b.FlatAppearance.BorderColor = "LightGray"
+        
+        # Stacks the emoji on top of the text
+        $b.Text = "$emoji`n`n$text"
+        $b.TextAlign = "MiddleCenter"
+        $b.Add_Click($action)
 
-    $btnMicroSIP = New-Object System.Windows.Forms.Button
-    $btnMicroSIP.Text = "📞 Install MicroSIP"; $btnMicroSIP.Location = "75,235"; $btnMicroSIP.Size = "300,45"; $btnMicroSIP.FlatStyle = "Flat"
-    $btnMicroSIP.Add_Click({ script:Install-App "MicroSIP" "MicroSIP.MicroSIP" })
+        # LATER WHEN YOU HAVE IMAGES:
+        # $b.BackgroundImage = [System.Drawing.Image]::FromFile("C:\path\to\icon.png")
+        # $b.BackgroundImageLayout = "Zoom"
+        # $b.Text = "" 
 
-    $btnOffice = New-Object System.Windows.Forms.Button
-    $btnOffice.Text = "📊 Install Microsoft 365"; $btnOffice.Location = "75,290"; $btnOffice.Size = "300,45"; $btnOffice.FlatStyle = "Flat"
-    $btnOffice.Add_Click({ script:Install-App "Microsoft 365" "Microsoft.Office" })
+        $panel.Controls.Add($b)
+        $script:appIndex++
+    }
 
-    $script:form.Controls.AddRange(@($btnBack, $btnChrome, $btnFirefox, $btnAnyDesk, $btnMicroSIP, $btnOffice))
+    # WINGET APPS
+    Add-WidgetBtn "🌐" "Chrome" { script:Install-App "Chrome" "Google.Chrome" }
+    Add-WidgetBtn "🦊" "Firefox" { script:Install-App "Firefox" "Mozilla.Firefox" }
+    Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" }
+    Add-WidgetBtn "📊" "Office 365" { script:Install-App "Microsoft 365" "Microsoft.Office" }
+    Add-WidgetBtn "💻" "VS Code" { script:Install-App "VS Code" "Microsoft.VisualStudioCode" }
+    Add-WidgetBtn "📝" "LibreOffice" { script:Install-App "LibreOffice" "TheDocumentFoundation.LibreOffice" }
+    Add-WidgetBtn "📄" "LightPDF" { script:Install-App "LightPDF" "LightPDF.LightPDF" }
+    Add-WidgetBtn "🛡️" "Pritunl" { script:Install-App "Pritunl" "Pritunl.Pritunl" }
+
+    # CUSTOM GITHUB APPS
+    Add-WidgetBtn "🖥️" "AnyDesk" { 
+        script:Install-CustomApp "AnyDesk" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") 
+    }
+    Add-WidgetBtn "🗄️" "MySQL 64" { 
+        script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "mysql-odbc-64.msi" $true @("/qn", "/norestart") 
+    }
+    Add-WidgetBtn "🗄️" "MySQL 32" { 
+        script:Install-CustomApp "MySQL ODBC 5.1 (32-bit)" "mysql-odbc-32.msi" $true @("/qn", "/norestart") 
+    }
+    Add-WidgetBtn "👁️" "eyeBeam" { 
+        script:Install-CustomApp "eyeBeam" "eyebeam.exe" $false @("/S") 
+    }
+
+    $script:form.Controls.AddRange(@($btnBack, $panel))
 }
 
 # --- START ---
