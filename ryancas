@@ -20,14 +20,13 @@ $script:form.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 
 # --- HELPER FUNCTION: INSTALLER WITH CONFIRMATION ---
 function script:Install-App {
-    param($appName, $wingetId, $extraArgs)
+    param($appName, $wingetId)
     
-    # Creates the OK/Cancel pop-up
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
     
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Host "Starting installation for $appName..." -ForegroundColor Cyan
-        $cmd = "winget install --id $wingetId --silent --accept-package-agreements --accept-source-agreements $extraArgs"
+        $cmd = "winget install --id $wingetId --silent --accept-package-agreements --accept-source-agreements"
         Invoke-Expression $cmd
         [System.Windows.Forms.MessageBox]::Show("$appName installation process finished.")
     }
@@ -102,20 +101,44 @@ function script:Show-Install-Apps {
 
     $btnChrome = New-Object System.Windows.Forms.Button
     $btnChrome.Text = "Install Chrome"; $btnChrome.Location = "75,90"; $btnChrome.Size = "300,50"; $btnChrome.FlatStyle = "Flat"
-    $btnChrome.Add_Click({ script:Install-App "Chrome" "Google.Chrome" "" })
+    $btnChrome.Add_Click({ script:Install-App "Chrome" "Google.Chrome" })
 
     $btnFirefox = New-Object System.Windows.Forms.Button
     $btnFirefox.Text = "Install Firefox"; $btnFirefox.Location = "75,160"; $btnFirefox.Size = "300,50"; $btnFirefox.FlatStyle = "Flat"
-    $btnFirefox.Add_Click({ script:Install-App "Firefox" "Mozilla.Firefox" "" })
+    $btnFirefox.Add_Click({ script:Install-App "Firefox" "Mozilla.Firefox" })
 
     $btnAnyDesk = New-Object System.Windows.Forms.Button
     $btnAnyDesk.Text = "Install AnyDesk (5.4.2)"; $btnAnyDesk.Location = "75,230"; $btnAnyDesk.Size = "300,50"; $btnAnyDesk.FlatStyle = "Flat"
-    # Using --version flag to target the specific older build of AnyDesk
-    $btnAnyDesk.Add_Click({ script:Install-App "AnyDesk (5.4.2)" "AnyDeskSoftwareGmbH.AnyDesk" "--version 5.4.2" })
+    $btnAnyDesk.Add_Click({ 
+        $result = [System.Windows.Forms.MessageBox]::Show("Install AnyDesk (5.4.2)?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
+        
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+            Write-Host "Downloading AnyDesk 5.4.2 from GitHub..." -ForegroundColor Cyan
+            
+            $directUrl = "https://github.com/ryan02-png/PC_Setup/raw/refs/heads/main/anydesk-5-4-2.exe" 
+            $tempExe = "$env:TEMP\AnyDesk542.exe"
+            
+            try {
+                # Download the file silently
+                Invoke-WebRequest -Uri $directUrl -OutFile $tempExe -UseBasicParsing
+                Write-Host "Installing AnyDesk silently..." -ForegroundColor Cyan
+                
+                # AnyDesk silent install command
+                $installArgs = "--install `"C:\Program Files (x86)\AnyDesk`" --start-with-win --silent"
+                Start-Process -FilePath $tempExe -ArgumentList $installArgs -Wait -NoNewWindow
+                
+                # Clean up the installer
+                Remove-Item -Path $tempExe -Force
+                [System.Windows.Forms.MessageBox]::Show("AnyDesk 5.4.2 installation finished.")
+            } catch {
+                [System.Windows.Forms.MessageBox]::Show("Error downloading or installing AnyDesk. Check your internet connection.")
+            }
+        }
+    })
 
     $btnMicroSIP = New-Object System.Windows.Forms.Button
     $btnMicroSIP.Text = "Install MicroSIP"; $btnMicroSIP.Location = "75,300"; $btnMicroSIP.Size = "300,50"; $btnMicroSIP.FlatStyle = "Flat"
-    $btnMicroSIP.Add_Click({ script:Install-App "MicroSIP" "MicroSIP.MicroSIP" "" })
+    $btnMicroSIP.Add_Click({ script:Install-App "MicroSIP" "MicroSIP.MicroSIP" })
 
     $script:form.Controls.AddRange(@($btnBack, $btnChrome, $btnFirefox, $btnAnyDesk, $btnMicroSIP))
 }
