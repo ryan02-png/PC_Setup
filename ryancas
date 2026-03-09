@@ -21,6 +21,7 @@ $script:form.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 # --- FUNCTION 1: MAIN MENU ---
 function script:Show-Main-Menu {
     $script:form.Controls.Clear()
+    
     $lbl = New-Object System.Windows.Forms.Label
     $lbl.Text = "Ryan Standardization"; $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
     $lbl.Location = "0,40"; $lbl.Size = "450,40"; $lbl.TextAlign = "MiddleCenter"
@@ -36,16 +37,20 @@ function script:Show-Main-Menu {
     $btn3 = New-Object System.Windows.Forms.Button
     $btn3.Text = "3. Install Apps"; $btn3.Location = "75,250"; $btn3.Size = "300,50"; $btn3.FlatStyle = "Flat"
     $btn3.Add_Click({ 
+        Write-Host "Installing standard apps..." -ForegroundColor Yellow
         winget install --id Google.Chrome --silent --accept-package-agreements
         winget install --id VideoLAN.VLC --silent
-        [System.Windows.Forms.MessageBox]::Show("Installation started.")
+        winget install --id 7zip.7zip --silent
+        [System.Windows.Forms.MessageBox]::Show("Installation started in the background.")
     })
+    
     $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3))
 }
 
 # --- FUNCTION 2: GPO MENU ---
 function script:Show-GPO-Menu {
     $script:form.Controls.Clear()
+    
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
     $btnBack.Add_Click({ script:Show-Main-Menu }) 
@@ -61,15 +66,17 @@ function script:Show-GPO-Menu {
     $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
 }
 
-# --- FUNCTION 3: USER CONFIGURATION (CLEARED) ---
+# --- FUNCTION 3: USER CONFIGURATION (COMPLETELY BLANK) ---
 function script:Show-User-Config {
     $script:form.Controls.Clear()
+    
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
     $btnBack.Add_Click({ script:Show-GPO-Menu }) 
 
-    # UI has been completely cleared out here.
-
+    # --- RESERVED FOR FUTURE USE ---
+    # You can drop your new ideas in here later!
+    
     $script:form.Controls.AddRange(@($btnBack))
 }
 
