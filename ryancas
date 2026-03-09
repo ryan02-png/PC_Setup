@@ -24,17 +24,9 @@ $btnUser.Size = New-Object System.Drawing.Size(300,45)
 $btnUser.Text = "1. Local Admin User Setup"
 $btnUser.Cursor = [System.Windows.Forms.Cursors]::Hand
 $btnUser.Add_Click({
-    $username = Read-Host "Enter New Admin Username"
-    $password = Read-Host "Enter Password" -AsSecureString
-    if ($username) {
-        try {
-            New-LocalUser -Name $username -Password $password -FullName "Admin User" -Description "Created via Ryan Standardization Tool"
-            Add-LocalGroupMember -Group "Administrators" -Member $username
-            [System.Windows.Forms.MessageBox]::Show("User $username created and promoted to Administrator!")
-        } catch {
-            [System.Windows.Forms.MessageBox]::Show("Error creating user. Check if the username already exists.")
-        }
-    }
+    Write-Host "Opening Local Users and Groups..." -ForegroundColor Cyan
+    # Redirects directly to the Windows User Management Console
+    Start-Process "lusrmgr.msc"
 })
 
 # --- 2. GP EDIT SETUP ---
@@ -47,7 +39,6 @@ $btnGPO.Add_Click({
     Write-Host "Forcing Group Policy Update..." -ForegroundColor Cyan
     gpupdate /force
     Write-Host "Opening Group Policy Editor..." -ForegroundColor Green
-    # This will open the native GPEdit on Windows Pro
     Start-Process "gpedit.msc"
 })
 
@@ -58,8 +49,7 @@ $btnApps.Size = New-Object System.Drawing.Size(300,45)
 $btnApps.Text = "3. Install Apps"
 $btnApps.Cursor = [System.Windows.Forms.Cursors]::Hand
 $btnApps.Add_Click({
-    Write-Host "Checking for winget and installing apps..." -ForegroundColor Yellow
-    # Installs standard IT toolkit
+    Write-Host "Installing standard applications..." -ForegroundColor Yellow
     winget install --id Google.Chrome --silent --accept-package-agreements
     winget install --id VideoLAN.VLC --silent
     winget install --id 7zip.7zip --silent
