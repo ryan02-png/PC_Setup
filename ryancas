@@ -43,15 +43,32 @@ function script:Show-Main-Menu {
     $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3))
 }
 
-# --- FUNCTION 2: GPO MENU (CLEARED) ---
+# --- FUNCTION 2: GPO MENU ---
 function script:Show-GPO-Menu {
     $script:form.Controls.Clear()
-    
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
     $btnBack.Add_Click({ script:Show-Main-Menu }) 
 
-    # All previous GP Edit UI elements have been removed.
+    $btnComp = New-Object System.Windows.Forms.Button
+    $btnComp.Text = "Computer Configuration"; $btnComp.Location = "75,110"; $btnComp.Size = "300,50"; $btnComp.FlatStyle = "Flat"
+    $btnComp.Add_Click({ Start-Process "secpol.msc" })
+
+    $btnUser = New-Object System.Windows.Forms.Button
+    $btnUser.Text = "User Configuration"; $btnUser.Location = "75,180"; $btnUser.Size = "300,50"; $btnUser.FlatStyle = "Flat"
+    $btnUser.Add_Click({ script:Show-User-Config }) 
+
+    $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
+}
+
+# --- FUNCTION 3: USER CONFIGURATION (CLEARED) ---
+function script:Show-User-Config {
+    $script:form.Controls.Clear()
+    $btnBack = New-Object System.Windows.Forms.Button
+    $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
+    $btnBack.Add_Click({ script:Show-GPO-Menu }) 
+
+    # UI has been completely cleared out here.
 
     $script:form.Controls.AddRange(@($btnBack))
 }
