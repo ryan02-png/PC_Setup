@@ -18,7 +18,7 @@ $script:form.StartPosition = "CenterScreen"
 $script:form.BackColor = "White"
 $script:form.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 
-# --- NAVIGATION FUNCTIONS ---
+# --- FUNCTION 1: MAIN MENU ---
 function script:Show-Main-Menu {
     $script:form.Controls.Clear()
     $lbl = New-Object System.Windows.Forms.Label
@@ -43,69 +43,17 @@ function script:Show-Main-Menu {
     $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3))
 }
 
+# --- FUNCTION 2: GPO MENU (CLEARED) ---
 function script:Show-GPO-Menu {
     $script:form.Controls.Clear()
+    
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
     $btnBack.Add_Click({ script:Show-Main-Menu }) 
 
-    $btnComp = New-Object System.Windows.Forms.Button
-    $btnComp.Text = "Computer Configuration"; $btnComp.Location = "75,110"; $btnComp.Size = "300,50"; $btnComp.FlatStyle = "Flat"
-    $btnComp.Add_Click({ Start-Process "secpol.msc" })
+    # All previous GP Edit UI elements have been removed.
 
-    $btnUser = New-Object System.Windows.Forms.Button
-    $btnUser.Text = "User Configuration"; $btnUser.Location = "75,180"; $btnUser.Size = "300,50"; $btnUser.FlatStyle = "Flat"
-    $btnUser.Add_Click({ script:Show-User-Config }) 
-    $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
-}
-
-function script:Show-User-Config {
-    $script:form.Controls.Clear()
-    $btnBack = New-Object System.Windows.Forms.Button
-    $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
-    $btnBack.Add_Click({ script:Show-GPO-Menu }) 
-
-    $panel = New-Object System.Windows.Forms.Panel
-    $panel.Location = "50,80"; $panel.Size = "350,320"; $panel.AutoScroll = $true
-
-    $opts = @("Remove Shutdown Button", "Hide Search", "Remove Notification Center", "Remove Pinned Apps", "Prevent Wallpaper Changes", "Disable USB Storage (User)", "Disable Microsoft Store (User)")
-    $script:checks = @()
-    $y = 10
-    foreach ($text in $opts) {
-        $c = New-Object System.Windows.Forms.CheckBox
-        $c.Text = $text; $c.Location = "10,$y"; $c.Size = "280,30"
-        $panel.Controls.Add($c)
-        $script:checks += $c
-        $y += 40
-    }
-
-    $btnConfirm = New-Object System.Windows.Forms.Button
-    $btnConfirm.Text = "Confirm Changes"; $btnConfirm.Location = "125,430"; $btnConfirm.Size = "200,45"; $btnConfirm.BackColor = "LightGray"; $btnConfirm.FlatStyle = "Flat"
-    $btnConfirm.Add_Click({
-        # --- REGISTRY PATHS ---
-        $polExplorer = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-        # THE FIX: Store policy MUST be HKLM to trigger the official "Blocked" error UI
-        $polStore    = "HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore"
-        
-        if (!(Test-Path $polExplorer)) { New-Item $polExplorer -Force | Out-Null }
-        if (!(Test-Path $polStore))    { New-Item $polStore -Force | Out-Null }
-
-        # --- APPLY POLICIES ---
-        if ($script:checks[0].Checked) { Set-ItemProperty $polExplorer -Name "NoClose" -Value 1 -Type DWord }
-        if ($script:checks[1].Checked) { Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value 0 -Type DWord }
-        if ($script:checks[2].Checked) { Set-ItemProperty $polExplorer -Name "DisableNotificationCenter" -Value 1 -Type DWord }
-        
-        # MICROSOFT STORE BLOCK (Trigger Admin Block Message)
-        if ($script:checks[6].Checked) { 
-            Set-ItemProperty -Path $polStore -Name "RemoveWindowsStore" -Value 1 -Type DWord 
-        }
-
-        gpupdate /force
-        Stop-Process -Name explorer -Force
-        [System.Windows.Forms.MessageBox]::Show("Standardization Applied! Check the Store now.")
-        script:Show-Main-Menu
-    })
-    $script:form.Controls.AddRange(@($btnBack, $panel, $btnConfirm))
+    $script:form.Controls.AddRange(@($btnBack))
 }
 
 # --- START ---
