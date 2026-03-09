@@ -106,21 +106,18 @@ function script:Show-Main-Menu {
         if ($msg -eq [System.Windows.Forms.DialogResult]::OK) {
             Write-Host "Cleaning up system..." -ForegroundColor Yellow
             
-            # Force close browsers so files aren't locked
             Stop-Process -Name chrome, msedge, firefox, brave -Force -ErrorAction SilentlyContinue
 
-            # Clear System and User Temp & Prefetch
-            Remove-Item -Path "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
-            Remove-Item -Path "$env:WINDIR\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
-            Remove-Item -Path "$env:WINDIR\Prefetch\*" -Recurse -Force -ErrorAction SilentlyContinue
+            # Safe Deletion Method
+            Get-ChildItem -Path $env:TEMP -Force -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+            Get-ChildItem -Path "$env:WINDIR\Temp" -Force -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+            Get-ChildItem -Path "$env:WINDIR\Prefetch" -Force -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 
-            # Clear Windows Update Cache (SoftwareDistribution)
             Write-Host "Clearing Windows Update Cache..." -ForegroundColor Yellow
             Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
-            Remove-Item -Path "$env:WINDIR\SoftwareDistribution\Download\*" -Recurse -Force -ErrorAction SilentlyContinue
+            Get-ChildItem -Path "$env:WINDIR\SoftwareDistribution\Download" -Force -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
             Start-Service -Name wuauserv -ErrorAction SilentlyContinue
 
-            # Clear Browser Cache and History DB files
             $browserPaths = @(
                 "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache\Cache_Data\*",
                 "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\History",
@@ -130,7 +127,10 @@ function script:Show-Main-Menu {
                 "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\History",
                 "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cache2\*"
             )
-            foreach ($path in $browserPaths) { Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue }
+            
+            foreach ($path in $browserPaths) { 
+                Get-ChildItem -Path $path -Force -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue 
+            }
 
             [System.Windows.Forms.MessageBox]::Show("Cleanup complete! System Temp, Browser Data, and Windows Update cache have been wiped.")
         }
@@ -175,17 +175,14 @@ function script:Show-Install-Apps {
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
     $btnBack.Add_Click({ script:Show-Main-Menu }) 
 
-    # Panel to hold the grid
     $panel = New-Object System.Windows.Forms.Panel
     $panel.Location = "20,60"; $panel.Size = "390,430"; $panel.AutoScroll = $true
 
-    # Grid Layout Variables
     $colCount = 3
     $btnSize = 100
     $spacing = 15
     $script:appIndex = 0
 
-    # Function to create a widget tile
     function Add-WidgetBtn ($emoji, $text, $action) {
         $b = New-Object System.Windows.Forms.Button
         
