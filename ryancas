@@ -18,33 +18,46 @@ $script:form.StartPosition = "CenterScreen"
 $script:form.BackColor = "White"
 $script:form.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 
+# --- HELPER FUNCTION: INSTALLER WITH CONFIRMATION ---
+function script:Install-App {
+    param($appName, $wingetId, $extraArgs)
+    
+    # Creates the OK/Cancel pop-up
+    $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
+    
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+        Write-Host "Starting installation for $appName..." -ForegroundColor Cyan
+        $cmd = "winget install --id $wingetId --silent --accept-package-agreements --accept-source-agreements $extraArgs"
+        Invoke-Expression $cmd
+        [System.Windows.Forms.MessageBox]::Show("$appName installation process finished.")
+    }
+}
+
 # --- FUNCTION 1: MAIN MENU ---
 function script:Show-Main-Menu {
     $script:form.Controls.Clear()
     
     $lbl = New-Object System.Windows.Forms.Label
     $lbl.Text = "Ryan Standardization"; $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
-    $lbl.Location = "0,40"; $lbl.Size = "450,40"; $lbl.TextAlign = "MiddleCenter"
+    $lbl.Location = "0,30"; $lbl.Size = "450,40"; $lbl.TextAlign = "MiddleCenter"
 
     $btn1 = New-Object System.Windows.Forms.Button
-    $btn1.Text = "1. Local Admin User Setup"; $btn1.Location = "75,110"; $btn1.Size = "300,50"; $btn1.FlatStyle = "Flat"
+    $btn1.Text = "1. Local Admin User Setup"; $btn1.Location = "75,90"; $btn1.Size = "300,50"; $btn1.FlatStyle = "Flat"
     $btn1.Add_Click({ Start-Process "lusrmgr.msc" })
 
     $btn2 = New-Object System.Windows.Forms.Button
-    $btn2.Text = "2. GP Edit Setup"; $btn2.Location = "75,180"; $btn2.Size = "300,50"; $btn2.FlatStyle = "Flat"
+    $btn2.Text = "2. GP Edit Setup"; $btn2.Location = "75,160"; $btn2.Size = "300,50"; $btn2.FlatStyle = "Flat"
     $btn2.Add_Click({ script:Show-GPO-Menu })
 
     $btn3 = New-Object System.Windows.Forms.Button
-    $btn3.Text = "3. Install Apps"; $btn3.Location = "75,250"; $btn3.Size = "300,50"; $btn3.FlatStyle = "Flat"
-    $btn3.Add_Click({ 
-        Write-Host "Installing standard apps..." -ForegroundColor Yellow
-        winget install --id Google.Chrome --silent --accept-package-agreements
-        winget install --id VideoLAN.VLC --silent
-        winget install --id 7zip.7zip --silent
-        [System.Windows.Forms.MessageBox]::Show("Installation started in the background.")
-    })
+    $btn3.Text = "3. Install Apps"; $btn3.Location = "75,230"; $btn3.Size = "300,50"; $btn3.FlatStyle = "Flat"
+    $btn3.Add_Click({ script:Show-Install-Apps })
+
+    $btn4 = New-Object System.Windows.Forms.Button
+    $btn4.Text = "4. Control Panel"; $btn4.Location = "75,300"; $btn4.Size = "300,50"; $btn4.FlatStyle = "Flat"
+    $btn4.Add_Click({ Start-Process "control" })
     
-    $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3))
+    $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3, $btn4))
 }
 
 # --- FUNCTION 2: GPO MENU ---
@@ -66,7 +79,7 @@ function script:Show-GPO-Menu {
     $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
 }
 
-# --- FUNCTION 3: USER CONFIGURATION (COMPLETELY BLANK) ---
+# --- FUNCTION 3: USER CONFIGURATION (BLANK) ---
 function script:Show-User-Config {
     $script:form.Controls.Clear()
     
@@ -74,10 +87,37 @@ function script:Show-User-Config {
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
     $btnBack.Add_Click({ script:Show-GPO-Menu }) 
 
-    # --- RESERVED FOR FUTURE USE ---
-    # You can drop your new ideas in here later!
+    # Reserved for your future updates
     
     $script:form.Controls.AddRange(@($btnBack))
+}
+
+# --- FUNCTION 4: INSTALL APPS MENU ---
+function script:Show-Install-Apps {
+    $script:form.Controls.Clear()
+    
+    $btnBack = New-Object System.Windows.Forms.Button
+    $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
+    $btnBack.Add_Click({ script:Show-Main-Menu }) 
+
+    $btnChrome = New-Object System.Windows.Forms.Button
+    $btnChrome.Text = "Install Chrome"; $btnChrome.Location = "75,90"; $btnChrome.Size = "300,50"; $btnChrome.FlatStyle = "Flat"
+    $btnChrome.Add_Click({ script:Install-App "Chrome" "Google.Chrome" "" })
+
+    $btnFirefox = New-Object System.Windows.Forms.Button
+    $btnFirefox.Text = "Install Firefox"; $btnFirefox.Location = "75,160"; $btnFirefox.Size = "300,50"; $btnFirefox.FlatStyle = "Flat"
+    $btnFirefox.Add_Click({ script:Install-App "Firefox" "Mozilla.Firefox" "" })
+
+    $btnAnyDesk = New-Object System.Windows.Forms.Button
+    $btnAnyDesk.Text = "Install AnyDesk (5.4.2)"; $btnAnyDesk.Location = "75,230"; $btnAnyDesk.Size = "300,50"; $btnAnyDesk.FlatStyle = "Flat"
+    # Using --version flag to target the specific older build of AnyDesk
+    $btnAnyDesk.Add_Click({ script:Install-App "AnyDesk (5.4.2)" "AnyDeskSoftwareGmbH.AnyDesk" "--version 5.4.2" })
+
+    $btnMicroSIP = New-Object System.Windows.Forms.Button
+    $btnMicroSIP.Text = "Install MicroSIP"; $btnMicroSIP.Location = "75,300"; $btnMicroSIP.Size = "300,50"; $btnMicroSIP.FlatStyle = "Flat"
+    $btnMicroSIP.Add_Click({ script:Install-App "MicroSIP" "MicroSIP.MicroSIP" "" })
+
+    $script:form.Controls.AddRange(@($btnBack, $btnChrome, $btnFirefox, $btnAnyDesk, $btnMicroSIP))
 }
 
 # --- START ---
