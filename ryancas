@@ -113,14 +113,15 @@ function script:Show-Install-Apps {
         if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
             Write-Host "Downloading AnyDesk 5.4.2 from GitHub..." -ForegroundColor Cyan
             
-            $directUrl = "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" 
+            # Using your exact link
+            $directUrl = "https://github.com/ryan02-png/PC_Setup/raw/refs/heads/main/anydesk-5-4-2.exe" 
             $tempExe = "$env:TEMP\AnyDesk542.exe"
             
             try {
                 Invoke-WebRequest -Uri $directUrl -OutFile $tempExe -UseBasicParsing
                 
                 if ((Get-Item $tempExe).Length -lt 1MB) {
-                    [System.Windows.Forms.MessageBox]::Show("Download failed: File is too small to be AnyDesk.")
+                    [System.Windows.Forms.MessageBox]::Show("Download failed: File is too small to be AnyDesk. Check the link.")
                     return
                 }
 
