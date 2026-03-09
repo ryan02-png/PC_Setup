@@ -85,8 +85,6 @@ function script:Show-User-Config {
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
     $btnBack.Add_Click({ script:Show-GPO-Menu }) 
-
-    # Reserved for your future updates
     
     $script:form.Controls.AddRange(@($btnBack))
 }
@@ -115,23 +113,26 @@ function script:Show-Install-Apps {
         if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
             Write-Host "Downloading AnyDesk 5.4.2 from GitHub..." -ForegroundColor Cyan
             
-            $directUrl = "https://github.com/ryan02-png/PC_Setup/raw/refs/heads/main/anydesk-5-4-2.exe" 
+            $directUrl = "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" 
             $tempExe = "$env:TEMP\AnyDesk542.exe"
             
             try {
-                # Download the file silently
                 Invoke-WebRequest -Uri $directUrl -OutFile $tempExe -UseBasicParsing
+                
+                if ((Get-Item $tempExe).Length -lt 1MB) {
+                    [System.Windows.Forms.MessageBox]::Show("Download failed: File is too small to be AnyDesk.")
+                    return
+                }
+
                 Write-Host "Installing AnyDesk silently..." -ForegroundColor Cyan
                 
-                # AnyDesk silent install command
-                $installArgs = "--install `"C:\Program Files (x86)\AnyDesk`" --start-with-win --silent"
+                $installArgs = @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent")
                 Start-Process -FilePath $tempExe -ArgumentList $installArgs -Wait -NoNewWindow
                 
-                # Clean up the installer
                 Remove-Item -Path $tempExe -Force
-                [System.Windows.Forms.MessageBox]::Show("AnyDesk 5.4.2 installation finished.")
+                [System.Windows.Forms.MessageBox]::Show("AnyDesk 5.4.2 installation finished. Check your desktop!")
             } catch {
-                [System.Windows.Forms.MessageBox]::Show("Error downloading or installing AnyDesk. Check your internet connection.")
+                [System.Windows.Forms.MessageBox]::Show("Error downloading or installing AnyDesk.")
             }
         }
     })
