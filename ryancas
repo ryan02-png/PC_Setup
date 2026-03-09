@@ -71,25 +71,35 @@ function script:Show-Main-Menu {
     
     $lbl = New-Object System.Windows.Forms.Label
     $lbl.Text = "Ryan Standardization"; $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
-    $lbl.Location = "0,30"; $lbl.Size = "450,40"; $lbl.TextAlign = "MiddleCenter"
+    $lbl.Location = "0,25"; $lbl.Size = "450,40"; $lbl.TextAlign = "MiddleCenter"
 
     $btn1 = New-Object System.Windows.Forms.Button
-    $btn1.Text = "👤 Local Admin User Setup"; $btn1.Location = "75,90"; $btn1.Size = "300,50"; $btn1.FlatStyle = "Flat"
+    $btn1.Text = "👤 Local Admin User Setup"; $btn1.Location = "75,80"; $btn1.Size = "300,45"; $btn1.FlatStyle = "Flat"
     $btn1.Add_Click({ Start-Process "lusrmgr.msc" })
 
     $btn2 = New-Object System.Windows.Forms.Button
-    $btn2.Text = "⚙️ GP Edit Setup"; $btn2.Location = "75,160"; $btn2.Size = "300,50"; $btn2.FlatStyle = "Flat"
+    $btn2.Text = "⚙️ GP Edit Setup"; $btn2.Location = "75,140"; $btn2.Size = "300,45"; $btn2.FlatStyle = "Flat"
     $btn2.Add_Click({ script:Show-GPO-Menu })
 
     $btn3 = New-Object System.Windows.Forms.Button
-    $btn3.Text = "📦 Install Apps"; $btn3.Location = "75,230"; $btn3.Size = "300,50"; $btn3.FlatStyle = "Flat"
+    $btn3.Text = "📦 Install Apps"; $btn3.Location = "75,200"; $btn3.Size = "300,45"; $btn3.FlatStyle = "Flat"
     $btn3.Add_Click({ script:Show-Install-Apps })
 
     $btn4 = New-Object System.Windows.Forms.Button
-    $btn4.Text = "🎛️ Control Panel"; $btn4.Location = "75,300"; $btn4.Size = "300,50"; $btn4.FlatStyle = "Flat"
+    $btn4.Text = "🎛️ Control Panel"; $btn4.Location = "75,260"; $btn4.Size = "300,45"; $btn4.FlatStyle = "Flat"
     $btn4.Add_Click({ Start-Process "control" })
+
+    $btn5 = New-Object System.Windows.Forms.Button
+    $btn5.Text = "🛠️ System Repair (SFC / DISM)"; $btn5.Location = "75,320"; $btn5.Size = "300,45"; $btn5.FlatStyle = "Flat"
+    $btn5.Add_Click({ 
+        $msg = [System.Windows.Forms.MessageBox]::Show("This will open a new window to repair Windows. It may take 15 minutes. Proceed?", "System Repair", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        if ($msg -eq [System.Windows.Forms.DialogResult]::OK) {
+            $repairCmd = "-NoExit -Command `"Write-Host 'Running DISM (Repairing Image)...' -ForegroundColor Cyan; DISM /Online /Cleanup-Image /RestoreHealth; Write-Host '`nRunning SFC (Checking Files)...' -ForegroundColor Cyan; sfc /scannow; Write-Host '`nRepair Complete! You can close this window.' -ForegroundColor Green`""
+            Start-Process powershell.exe -ArgumentList $repairCmd
+        }
+    })
     
-    $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3, $btn4))
+    $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3, $btn4, $btn5))
 }
 
 # --- FUNCTION 2: GPO MENU ---
@@ -142,7 +152,6 @@ function script:Show-Install-Apps {
     function Add-WidgetBtn ($emoji, $text, $action) {
         $b = New-Object System.Windows.Forms.Button
         
-        # Calculate X and Y based on column and row
         $col = $script:appIndex % $colCount
         $row = [math]::Floor($script:appIndex / $colCount)
         
@@ -155,7 +164,6 @@ function script:Show-Install-Apps {
         $b.BackColor = "WhiteSmoke"
         $b.FlatAppearance.BorderColor = "LightGray"
         
-        # Stacks the emoji on top of the text
         $b.Text = "$emoji`n`n$text"
         $b.TextAlign = "MiddleCenter"
         $b.Add_Click($action)
@@ -181,10 +189,10 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🖥️" "AnyDesk" { 
         script:Install-CustomApp "AnyDesk" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") 
     }
-    Add-WidgetBtn "🗄️" "MySQL 64" { 
+    Add-WidgetBtn "🗄️" "MySQL ODBC 64" { 
         script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "mysql-odbc-64.msi" $true @("/qn", "/norestart") 
     }
-    Add-WidgetBtn "🗄️" "MySQL 32" { 
+    Add-WidgetBtn "🗄️" "MySQL ODBC 32" { 
         script:Install-CustomApp "MySQL ODBC 5.1 (32-bit)" "mysql-odbc-32.msi" $true @("/qn", "/norestart") 
     }
     Add-WidgetBtn "👁️" "eyeBeam" { 
