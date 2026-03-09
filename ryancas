@@ -10,52 +10,94 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# --- UI SETUP ---
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "Ryan Standardization"
-$form.Size = New-Object System.Drawing.Size(400,280)
-$form.StartPosition = "CenterScreen"
-$form.BackColor = "White"
+# --- MAIN FORM ---
+$mainForm = New-Object System.Windows.Forms.Form
+$mainForm.Text = "Ryan Standardization"
+$mainForm.Size = New-Object System.Drawing.Size(400,300)
+$mainForm.StartPosition = "CenterScreen"
 
 # --- 1. LOCAL ADMIN USER SETUP ---
 $btnUser = New-Object System.Windows.Forms.Button
 $btnUser.Location = New-Object System.Drawing.Point(50,30)
 $btnUser.Size = New-Object System.Drawing.Size(300,45)
 $btnUser.Text = "1. Local Admin User Setup"
-$btnUser.Cursor = [System.Windows.Forms.Cursors]::Hand
-$btnUser.Add_Click({
-    Write-Host "Opening Local Users and Groups..." -ForegroundColor Cyan
-    # Redirects directly to the Windows User Management Console
-    Start-Process "lusrmgr.msc"
-})
+$btnUser.Add_Click({ Start-Process "lusrmgr.msc" })
 
-# --- 2. GP EDIT SETUP ---
+# --- 2. GP EDIT SETUP (REDIRECT TO SUB-MENU) ---
 $btnGPO = New-Object System.Windows.Forms.Button
 $btnGPO.Location = New-Object System.Drawing.Point(50,90)
 $btnGPO.Size = New-Object System.Drawing.Size(300,45)
 $btnGPO.Text = "2. GP Edit Setup"
-$btnGPO.Cursor = [System.Windows.Forms.Cursors]::Hand
-$btnGPO.Add_Click({
-    Write-Host "Forcing Group Policy Update..." -ForegroundColor Cyan
-    gpupdate /force
-    Write-Host "Opening Group Policy Editor..." -ForegroundColor Green
-    Start-Process "gpedit.msc"
-})
+$btnGPO.Add_Click({ Show-GPO-Menu })
 
 # --- 3. INSTALL APPS ---
 $btnApps = New-Object System.Windows.Forms.Button
 $btnApps.Location = New-Object System.Drawing.Point(50,150)
 $btnApps.Size = New-Object System.Drawing.Size(300,45)
 $btnApps.Text = "3. Install Apps"
-$btnApps.Cursor = [System.Windows.Forms.Cursors]::Hand
-$btnApps.Add_Click({
-    Write-Host "Installing standard applications..." -ForegroundColor Yellow
+$btnApps.Add_Click({ 
     winget install --id Google.Chrome --silent --accept-package-agreements
     winget install --id VideoLAN.VLC --silent
-    winget install --id 7zip.7zip --silent
-    [System.Windows.Forms.MessageBox]::Show("Installation started for Chrome, VLC, and 7-Zip.")
+    [System.Windows.Forms.MessageBox]::Show("Apps installation started.")
 })
 
-# Add controls to form
-$form.Controls.AddRange(@($btnUser, $btnGPO, $btnApps))
-$form.ShowDialog()
+# --- SUB-MENU: GP EDIT SETUP ---
+function Show-GPO-Menu {
+    $gpoForm = New-Object System.Windows.Forms.Form
+    $gpoForm.Text = "GP Edit Setup"
+    $gpoForm.Size = New-Object System.Drawing.Size(400,250)
+    $gpoForm.StartPosition = "CenterParent"
+
+    $btnComp = New-Object System.Windows.Forms.Button
+    $btnComp.Text = "Computer Configuration"
+    $btnComp.Location = New-Object System.Drawing.Point(50,40)
+    $btnComp.Size = New-Object System.Drawing.Size(300,40)
+    $btnComp.Add_Click({ Start-Process "secpol.msc" }) # Redirects to Account/Security Policies
+
+    $btnUserConfig = New-Object System.Windows.Forms.Button
+    $btnUserConfig.Text = "User Configuration"
+    $btnUserConfig.Location = New-Object System.Drawing.Point(50,100)
+    $btnUserConfig.Size = New-Object System.Drawing.Size(300,40)
+    $btnUserConfig.Add_Click({ Show-User-Config })
+
+    $gpoForm.Controls.AddRange(@($btnComp, $btnUserConfig))
+    $gpoForm.ShowDialog()
+}
+
+# --- SUB-MENU: USER CONFIGURATION (CHECKBOXES) ---
+function Show-User-Config {
+    $ucForm = New-Object System.Windows.Forms.Form
+    $ucForm.Text = "User Configuration Settings"
+    $ucForm.Size = New-Object System.Drawing.Size(450,550)
+    $ucForm.StartPosition = "CenterParent"
+
+    # Checkbox list
+    $chkShutdown = New-Object System.Windows.Forms.CheckBox; $chkShutdown.Text = "Remove Shutdown Button"; $chkShutdown.Location = "30,30"; $chkShutdown.Width = 300
+    $chkSearch = New-Object System.Windows.Forms.CheckBox; $chkSearch.Text = "Hide Search"; $chkSearch.Location = "30,60"
+    $chkNotif = New-Object System.Windows.Forms.CheckBox; $chkNotif.Text = "Remove Notification Center"; $chkNotif.Location = "30,90"
+    $chkPinned = New-Object System.Windows.Forms.CheckBox; $chkPinned.Text = "Remove Pinned Apps"; $chkPinned.Location = "30,120"
+    $chkWall = New-Object System.Windows.Forms.CheckBox; $chkWall.Text = "Prevent Wallpaper Changes"; $chkWall.Location = "30,150"
+    $chkUSB = New-Object System.Windows.Forms.CheckBox; $chkUSB.Text = "Disable USB Storage"; $chkUSB.Location = "30,180"
+    $chkStore = New-Object System.Windows.Forms.CheckBox; $chkStore.Text = "Disable Microsoft Store"; $chkStore.Location = "30,210"
+
+    # Confirm Button
+    $btnConfirm = New-Object System.Windows.Forms.Button
+    $btnConfirm.Text = "Confirm"
+    $btnConfirm.Location = New-Object System.Drawing.Point(300,450)
+    $btnConfirm.Add_Click({
+        # LOGIC FOR REGISTRY CHANGES
+        if ($chkShutdown.Checked) { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoClose" -Value 1 }
+        if ($chkUSB.Checked) { Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR" -Name "Start" -Value 4 }
+        if ($chkStore.Checked) { Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore" -Name "RemoveWindowsStore" -Value 1 }
+        
+        gpupdate /force
+        [System.Windows.Forms.MessageBox]::Show("Policies Applied Successfully!")
+        $ucForm.Close()
+    })
+
+    $ucForm.Controls.AddRange(@($chkShutdown, $chkSearch, $chkNotif, $chkPinned, $chkWall, $chkUSB, $chkStore, $btnConfirm))
+    $ucForm.ShowDialog()
+}
+
+$mainForm.Controls.AddRange(@($btnUser, $btnGPO, $btnApps))
+$mainForm.ShowDialog()
