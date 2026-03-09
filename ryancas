@@ -10,12 +10,21 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# --- THEME VARIABLES ---
+$script:bgDark = [System.Drawing.Color]::FromArgb(30, 30, 30)       # Main Background
+$script:btnGray = [System.Drawing.Color]::FromArgb(50, 50, 50)      # Button Background
+$script:btnHover = [System.Drawing.Color]::FromArgb(70, 70, 70)     # Button Hover (handled by OS)
+$script:textWhite = [System.Drawing.Color]::WhiteSmoke              # Text Color
+$script:borderGray = [System.Drawing.Color]::FromArgb(100, 100, 100) # Button Borders
+
 # --- INITIALIZE THE WINDOW ---
 $script:form = New-Object System.Windows.Forms.Form
 $script:form.Text = "Ryan Standardization"
-$script:form.Size = "450,550"
+$script:form.Size = "450,600"
+$script:form.MinimumSize = "400,500" # Prevents shrinking too small
 $script:form.StartPosition = "CenterScreen"
-$script:form.BackColor = "White"
+$script:form.BackColor = $script:bgDark
+$script:form.ForeColor = $script:textWhite
 $script:form.Font = New-Object System.Drawing.Font("Segoe UI Emoji", 9)
 
 # --- HELPER FUNCTION 1: WINGET INSTALLER ---
@@ -65,50 +74,52 @@ function script:Install-CustomApp {
     }
 }
 
+# --- HELPER FUNCTION 3: MENU BUTTON STYLER ---
+function script:Create-MenuButton ($text, $yPos, $action) {
+    $btn = New-Object System.Windows.Forms.Button
+    $btn.Text = $text
+    $btn.Location = "50,$yPos"
+    $btn.Size = "330,45"
+    # This anchor makes the button stretch horizontally when resizing the window
+    $btn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+    $btn.FlatStyle = "Flat"
+    $btn.BackColor = $script:btnGray
+    $btn.ForeColor = $script:textWhite
+    $btn.FlatAppearance.BorderColor = $script:borderGray
+    $btn.Add_Click($action)
+    return $btn
+}
+
 # --- FUNCTION 1: MAIN MENU ---
 function script:Show-Main-Menu {
     $script:form.Controls.Clear()
     
     $lbl = New-Object System.Windows.Forms.Label
-    $lbl.Text = "Ryan Standardization"; $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
-    $lbl.Location = "0,25"; $lbl.Size = "450,40"; $lbl.TextAlign = "MiddleCenter"
+    $lbl.Text = "Ryan Standardization"
+    $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
+    $lbl.Location = "0,25"
+    $lbl.Size = "450,40"
+    $lbl.TextAlign = "MiddleCenter"
+    $lbl.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 
-    $btn1 = New-Object System.Windows.Forms.Button
-    $btn1.Text = "👤 Local Admin User Setup"; $btn1.Location = "75,80"; $btn1.Size = "300,45"; $btn1.FlatStyle = "Flat"
-    $btn1.Add_Click({ Start-Process "lusrmgr.msc" })
-
-    $btn2 = New-Object System.Windows.Forms.Button
-    $btn2.Text = "⚙️ GP Edit Setup"; $btn2.Location = "75,140"; $btn2.Size = "300,45"; $btn2.FlatStyle = "Flat"
-    $btn2.Add_Click({ script:Show-GPO-Menu })
-
-    $btn3 = New-Object System.Windows.Forms.Button
-    $btn3.Text = "📦 Install Apps"; $btn3.Location = "75,200"; $btn3.Size = "300,45"; $btn3.FlatStyle = "Flat"
-    $btn3.Add_Click({ script:Show-Install-Apps })
-
-    $btn4 = New-Object System.Windows.Forms.Button
-    $btn4.Text = "🎛️ Control Panel"; $btn4.Location = "75,260"; $btn4.Size = "300,45"; $btn4.FlatStyle = "Flat"
-    $btn4.Add_Click({ Start-Process "control" })
-
-    $btn5 = New-Object System.Windows.Forms.Button
-    $btn5.Text = "🛠️ System Repair (SFC / DISM)"; $btn5.Location = "75,320"; $btn5.Size = "300,45"; $btn5.FlatStyle = "Flat"
-    $btn5.Add_Click({ 
-        $msg = [System.Windows.Forms.MessageBox]::Show("This will open a new window to repair Windows. It may take 15 minutes. Proceed?", "System Repair", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Warning)
+    $btn1 = script:Create-MenuButton "👤 Local Admin User Setup" 80 { Start-Process "lusrmgr.msc" }
+    $btn2 = script:Create-MenuButton "⚙️ GP Edit Setup" 140 { script:Show-GPO-Menu }
+    $btn3 = script:Create-MenuButton "📦 Install Apps" 200 { script:Show-Install-Apps }
+    $btn4 = script:Create-MenuButton "🎛️ Control Panel" 260 { Start-Process "control" }
+    
+    $btn5 = script:Create-MenuButton "🛠️ System Repair (SFC / DISM)" 320 { 
+        $msg = [System.Windows.Forms.MessageBox]::Show("Open new window to repair Windows? (Takes 15 mins)", "System Repair", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Warning)
         if ($msg -eq [System.Windows.Forms.DialogResult]::OK) {
-            $repairCmd = "-NoExit -Command `"Write-Host 'Running DISM (Repairing Image)...' -ForegroundColor Cyan; DISM /Online /Cleanup-Image /RestoreHealth; Write-Host '`nRunning SFC (Checking Files)...' -ForegroundColor Cyan; sfc /scannow; Write-Host '`nRepair Complete! You can close this window.' -ForegroundColor Green`""
+            $repairCmd = "-NoExit -Command `"Write-Host 'Running DISM...' -ForegroundColor Cyan; DISM /Online /Cleanup-Image /RestoreHealth; Write-Host '`nRunning SFC...' -ForegroundColor Cyan; sfc /scannow; Write-Host '`nRepair Complete!' -ForegroundColor Green`""
             Start-Process powershell.exe -ArgumentList $repairCmd
         }
-    })
+    }
 
-    $btn6 = New-Object System.Windows.Forms.Button
-    $btn6.Text = "🧹 Storage & Browser Cleanup"; $btn6.Location = "75,380"; $btn6.Size = "300,45"; $btn6.FlatStyle = "Flat"
-    $btn6.Add_Click({ 
-        $msg = [System.Windows.Forms.MessageBox]::Show("This will force-close browsers, delete Temp files, Cache, Browser History, AND clear the Windows Update cache. Proceed?", "Storage Cleanup", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Warning)
+    $btn6 = script:Create-MenuButton "🧹 Storage & Browser Cleanup" 380 { 
+        $msg = [System.Windows.Forms.MessageBox]::Show("Force-close browsers, wipe Temp files, Cache, History, and Windows Update cache?", "Storage Cleanup", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Warning)
         if ($msg -eq [System.Windows.Forms.DialogResult]::OK) {
             Write-Host "Cleaning up system..." -ForegroundColor Yellow
-            
-            # Master override to hide all file lock/missing errors
-            $oldErrorAction = $ErrorActionPreference
-            $ErrorActionPreference = 'SilentlyContinue'
+            $oldAction = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
 
             Stop-Process -Name chrome, msedge, firefox, brave -Force
 
@@ -116,31 +127,17 @@ function script:Show-Main-Menu {
             Get-ChildItem -Path "$env:WINDIR\Temp" -Recurse -Force | Remove-Item -Recurse -Force
             Get-ChildItem -Path "$env:WINDIR\Prefetch" -Recurse -Force | Remove-Item -Recurse -Force
 
-            Write-Host "Clearing Windows Update Cache..." -ForegroundColor Yellow
             Stop-Service -Name wuauserv -Force
             Get-ChildItem -Path "$env:WINDIR\SoftwareDistribution\Download" -Recurse -Force | Remove-Item -Recurse -Force
             Start-Service -Name wuauserv
 
-            $browserPaths = @(
-                "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache\Cache_Data\*",
-                "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\History",
-                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache\Cache_Data\*",
-                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\History",
-                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Cache\Cache_Data\*",
-                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\History",
-                "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cache2\*"
-            )
+            $paths = @("$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\History", "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\History", "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\History", "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cache2\*")
+            foreach ($p in $paths) { Remove-Item -Path $p -Recurse -Force }
             
-            foreach ($path in $browserPaths) { 
-                Remove-Item -Path $path -Recurse -Force 
-            }
-
-            # Restore normal error reporting
-            $ErrorActionPreference = $oldErrorAction
-
-            [System.Windows.Forms.MessageBox]::Show("Cleanup complete! System Temp, Browser Data, and Windows Update cache have been wiped.")
+            $ErrorActionPreference = $oldAction
+            [System.Windows.Forms.MessageBox]::Show("Cleanup complete!")
         }
-    })
+    }
     
     $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3, $btn4, $btn5, $btn6))
 }
@@ -151,15 +148,11 @@ function script:Show-GPO-Menu {
     
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
+    $btnBack.BackColor = $script:btnGray; $btnBack.FlatAppearance.BorderColor = $script:borderGray
     $btnBack.Add_Click({ script:Show-Main-Menu }) 
 
-    $btnComp = New-Object System.Windows.Forms.Button
-    $btnComp.Text = "💻 Computer Configuration"; $btnComp.Location = "75,110"; $btnComp.Size = "300,50"; $btnComp.FlatStyle = "Flat"
-    $btnComp.Add_Click({ Start-Process "secpol.msc" })
-
-    $btnUser = New-Object System.Windows.Forms.Button
-    $btnUser.Text = "👤 User Configuration"; $btnUser.Location = "75,180"; $btnUser.Size = "300,50"; $btnUser.FlatStyle = "Flat"
-    $btnUser.Add_Click({ script:Show-User-Config }) 
+    $btnComp = script:Create-MenuButton "💻 Computer Configuration" 110 { Start-Process "secpol.msc" }
+    $btnUser = script:Create-MenuButton "👤 User Configuration" 180 { script:Show-User-Config }
 
     $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
 }
@@ -169,47 +162,40 @@ function script:Show-User-Config {
     $script:form.Controls.Clear()
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
+    $btnBack.BackColor = $script:btnGray; $btnBack.FlatAppearance.BorderColor = $script:borderGray
     $btnBack.Add_Click({ script:Show-GPO-Menu }) 
     $script:form.Controls.AddRange(@($btnBack))
 }
 
-# --- FUNCTION 4: INSTALL APPS (WIDGET UI) ---
+# --- FUNCTION 4: INSTALL APPS (RESPONSIVE GRID) ---
 function script:Show-Install-Apps {
     $script:form.Controls.Clear()
     
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
+    $btnBack.BackColor = $script:btnGray; $btnBack.FlatAppearance.BorderColor = $script:borderGray
     $btnBack.Add_Click({ script:Show-Main-Menu }) 
 
-    $panel = New-Object System.Windows.Forms.Panel
-    $panel.Location = "20,60"; $panel.Size = "390,430"; $panel.AutoScroll = $true
-
-    $colCount = 3
-    $btnSize = 100
-    $spacing = 15
-    $script:appIndex = 0
+    # FlowLayoutPanel automatically handles responsive wrapping!
+    $panel = New-Object System.Windows.Forms.FlowLayoutPanel
+    $panel.Location = "15,60"
+    $panel.Size = "400,480"
+    $panel.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+    $panel.AutoScroll = $true
 
     function Add-WidgetBtn ($emoji, $text, $action) {
         $b = New-Object System.Windows.Forms.Button
-        
-        $col = $script:appIndex % $colCount
-        $row = [math]::Floor($script:appIndex / $colCount)
-        
-        $x = ($col * ($btnSize + $spacing)) + 10
-        $y = ($row * ($btnSize + $spacing)) + 10
-
-        $b.Location = "$x,$y"
-        $b.Size = "$btnSize,$btnSize"
+        $b.Size = "115,115"
+        $b.Margin = New-Object System.Windows.Forms.Padding(6) # Spacing between tiles
         $b.FlatStyle = "Flat"
-        $b.BackColor = "WhiteSmoke"
-        $b.FlatAppearance.BorderColor = "LightGray"
+        $b.BackColor = $script:btnGray
+        $b.ForeColor = $script:textWhite
+        $b.FlatAppearance.BorderColor = $script:borderGray
         
         $b.Text = "$emoji`n`n$text"
         $b.TextAlign = "MiddleCenter"
         $b.Add_Click($action)
-
         $panel.Controls.Add($b)
-        $script:appIndex++
     }
 
     # WINGET APPS
@@ -226,18 +212,10 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🖥️" "TightVNC" { script:Install-App "TightVNC" "TightVNC.TightVNC" }
 
     # CUSTOM GITHUB APPS
-    Add-WidgetBtn "🖥️" "AnyDesk" { 
-        script:Install-CustomApp "AnyDesk" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") 
-    }
-    Add-WidgetBtn "🗄️" "MySQL ODBC 64" { 
-        script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "mysql-odbc-64.msi" $true @("/qn", "/norestart") 
-    }
-    Add-WidgetBtn "🗄️" "MySQL ODBC 32" { 
-        script:Install-CustomApp "MySQL ODBC 5.1 (32-bit)" "mysql-odbc-32.msi" $true @("/qn", "/norestart") 
-    }
-    Add-WidgetBtn "👁️" "eyeBeam" { 
-        script:Install-CustomApp "eyeBeam" "eyebeam.exe" $false @("/S") 
-    }
+    Add-WidgetBtn "🖥️" "AnyDesk" { script:Install-CustomApp "AnyDesk" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
+    Add-WidgetBtn "🗄️" "MySQL ODBC 64" { script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "mysql-odbc-64.msi" $true @("/qn", "/norestart") }
+    Add-WidgetBtn "🗄️" "MySQL ODBC 32" { script:Install-CustomApp "MySQL ODBC 5.1 (32-bit)" "mysql-odbc-32.msi" $true @("/qn", "/norestart") }
+    Add-WidgetBtn "👁️" "eyeBeam" { script:Install-CustomApp "eyeBeam" "eyebeam.exe" $false @("/S") }
 
     $script:form.Controls.AddRange(@($btnBack, $panel))
 }
