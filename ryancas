@@ -16,7 +16,8 @@ $script:form.Text = "Ryan Standardization"
 $script:form.Size = "450,550"
 $script:form.StartPosition = "CenterScreen"
 $script:form.BackColor = "White"
-$script:form.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+# Using Segoe UI Emoji ensures the icons render properly in color
+$script:form.Font = New-Object System.Drawing.Font("Segoe UI Emoji", 10)
 
 # --- HELPER FUNCTION: INSTALLER WITH CONFIRMATION ---
 function script:Install-App {
@@ -41,19 +42,19 @@ function script:Show-Main-Menu {
     $lbl.Location = "0,30"; $lbl.Size = "450,40"; $lbl.TextAlign = "MiddleCenter"
 
     $btn1 = New-Object System.Windows.Forms.Button
-    $btn1.Text = "1. Local Admin User Setup"; $btn1.Location = "75,90"; $btn1.Size = "300,50"; $btn1.FlatStyle = "Flat"
+    $btn1.Text = "👤 Local Admin User Setup"; $btn1.Location = "75,90"; $btn1.Size = "300,50"; $btn1.FlatStyle = "Flat"
     $btn1.Add_Click({ Start-Process "lusrmgr.msc" })
 
     $btn2 = New-Object System.Windows.Forms.Button
-    $btn2.Text = "2. GP Edit Setup"; $btn2.Location = "75,160"; $btn2.Size = "300,50"; $btn2.FlatStyle = "Flat"
+    $btn2.Text = "⚙️ GP Edit Setup"; $btn2.Location = "75,160"; $btn2.Size = "300,50"; $btn2.FlatStyle = "Flat"
     $btn2.Add_Click({ script:Show-GPO-Menu })
 
     $btn3 = New-Object System.Windows.Forms.Button
-    $btn3.Text = "3. Install Apps"; $btn3.Location = "75,230"; $btn3.Size = "300,50"; $btn3.FlatStyle = "Flat"
+    $btn3.Text = "📦 Install Apps"; $btn3.Location = "75,230"; $btn3.Size = "300,50"; $btn3.FlatStyle = "Flat"
     $btn3.Add_Click({ script:Show-Install-Apps })
 
     $btn4 = New-Object System.Windows.Forms.Button
-    $btn4.Text = "4. Control Panel"; $btn4.Location = "75,300"; $btn4.Size = "300,50"; $btn4.FlatStyle = "Flat"
+    $btn4.Text = "🎛️ Control Panel"; $btn4.Location = "75,300"; $btn4.Size = "300,50"; $btn4.FlatStyle = "Flat"
     $btn4.Add_Click({ Start-Process "control" })
     
     $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3, $btn4))
@@ -68,11 +69,11 @@ function script:Show-GPO-Menu {
     $btnBack.Add_Click({ script:Show-Main-Menu }) 
 
     $btnComp = New-Object System.Windows.Forms.Button
-    $btnComp.Text = "Computer Configuration"; $btnComp.Location = "75,110"; $btnComp.Size = "300,50"; $btnComp.FlatStyle = "Flat"
+    $btnComp.Text = "💻 Computer Configuration"; $btnComp.Location = "75,110"; $btnComp.Size = "300,50"; $btnComp.FlatStyle = "Flat"
     $btnComp.Add_Click({ Start-Process "secpol.msc" })
 
     $btnUser = New-Object System.Windows.Forms.Button
-    $btnUser.Text = "User Configuration"; $btnUser.Location = "75,180"; $btnUser.Size = "300,50"; $btnUser.FlatStyle = "Flat"
+    $btnUser.Text = "👤 User Configuration"; $btnUser.Location = "75,180"; $btnUser.Size = "300,50"; $btnUser.FlatStyle = "Flat"
     $btnUser.Add_Click({ script:Show-User-Config }) 
 
     $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
@@ -98,21 +99,20 @@ function script:Show-Install-Apps {
     $btnBack.Add_Click({ script:Show-Main-Menu }) 
 
     $btnChrome = New-Object System.Windows.Forms.Button
-    $btnChrome.Text = "Install Chrome"; $btnChrome.Location = "75,70"; $btnChrome.Size = "300,45"; $btnChrome.FlatStyle = "Flat"
+    $btnChrome.Text = "🌐 Install Chrome"; $btnChrome.Location = "75,70"; $btnChrome.Size = "300,45"; $btnChrome.FlatStyle = "Flat"
     $btnChrome.Add_Click({ script:Install-App "Chrome" "Google.Chrome" })
 
     $btnFirefox = New-Object System.Windows.Forms.Button
-    $btnFirefox.Text = "Install Firefox"; $btnFirefox.Location = "75,125"; $btnFirefox.Size = "300,45"; $btnFirefox.FlatStyle = "Flat"
+    $btnFirefox.Text = "🦊 Install Firefox"; $btnFirefox.Location = "75,125"; $btnFirefox.Size = "300,45"; $btnFirefox.FlatStyle = "Flat"
     $btnFirefox.Add_Click({ script:Install-App "Firefox" "Mozilla.Firefox" })
 
     $btnAnyDesk = New-Object System.Windows.Forms.Button
-    $btnAnyDesk.Text = "Install AnyDesk (5.4.2)"; $btnAnyDesk.Location = "75,180"; $btnAnyDesk.Size = "300,45"; $btnAnyDesk.FlatStyle = "Flat"
+    $btnAnyDesk.Text = "🖥️ Install AnyDesk (5.4.2)"; $btnAnyDesk.Location = "75,180"; $btnAnyDesk.Size = "300,45"; $btnAnyDesk.FlatStyle = "Flat"
     $btnAnyDesk.Add_Click({ 
         $result = [System.Windows.Forms.MessageBox]::Show("Install AnyDesk (5.4.2)?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
         
         if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
             Write-Host "Downloading AnyDesk 5.4.2 from GitHub..." -ForegroundColor Cyan
-            
             $directUrl = "https://github.com/ryan02-png/PC_Setup/raw/refs/heads/main/anydesk-5-4-2.exe" 
             $tempExe = "$env:TEMP\AnyDesk542.exe"
             
@@ -125,7 +125,6 @@ function script:Show-Install-Apps {
                 }
 
                 Write-Host "Installing AnyDesk silently..." -ForegroundColor Cyan
-                
                 $installArgs = @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent")
                 Start-Process -FilePath $tempExe -ArgumentList $installArgs -Wait -NoNewWindow
                 
@@ -138,12 +137,12 @@ function script:Show-Install-Apps {
     })
 
     $btnMicroSIP = New-Object System.Windows.Forms.Button
-    $btnMicroSIP.Text = "Install MicroSIP"; $btnMicroSIP.Location = "75,235"; $btnMicroSIP.Size = "300,45"; $btnMicroSIP.FlatStyle = "Flat"
+    $btnMicroSIP.Text = "📞 Install MicroSIP"; $btnMicroSIP.Location = "75,235"; $btnMicroSIP.Size = "300,45"; $btnMicroSIP.FlatStyle = "Flat"
     $btnMicroSIP.Add_Click({ script:Install-App "MicroSIP" "MicroSIP.MicroSIP" })
 
     $btnOffice = New-Object System.Windows.Forms.Button
-    $btnOffice.Text = "Install Microsoft Office (M365)"; $btnOffice.Location = "75,290"; $btnOffice.Size = "300,45"; $btnOffice.FlatStyle = "Flat"
-    $btnOffice.Add_Click({ script:Install-App "Microsoft Office" "Microsoft.Office" })
+    $btnOffice.Text = "📊 Install Microsoft 365"; $btnOffice.Location = "75,290"; $btnOffice.Size = "300,45"; $btnOffice.FlatStyle = "Flat"
+    $btnOffice.Add_Click({ script:Install-App "Microsoft 365" "Microsoft.Office" })
 
     $script:form.Controls.AddRange(@($btnBack, $btnChrome, $btnFirefox, $btnAnyDesk, $btnMicroSIP, $btnOffice))
 }
