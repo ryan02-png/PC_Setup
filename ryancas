@@ -11,83 +11,93 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # --- THEME VARIABLES ---
-$script:bgDark = [System.Drawing.Color]::FromArgb(30, 30, 30)       # Main Background
-$script:btnGray = [System.Drawing.Color]::FromArgb(50, 50, 50)      # Button Background
-$script:btnHover = [System.Drawing.Color]::FromArgb(70, 70, 70)     # Button Hover (handled by OS)
-$script:textWhite = [System.Drawing.Color]::WhiteSmoke              # Text Color
-$script:borderGray = [System.Drawing.Color]::FromArgb(100, 100, 100) # Button Borders
+$script:bgDark = [System.Drawing.Color]::FromArgb(30, 30, 30)       
+$script:btnGray = [System.Drawing.Color]::FromArgb(60, 60, 60)      
+$script:textWhite = [System.Drawing.Color]::WhiteSmoke              
 
 # --- INITIALIZE THE WINDOW ---
 $script:form = New-Object System.Windows.Forms.Form
 $script:form.Text = "Ryan Standardization"
 $script:form.Size = "450,600"
-$script:form.MinimumSize = "400,500" # Prevents shrinking too small
+$script:form.MinimumSize = "400,500"
 $script:form.StartPosition = "CenterScreen"
 $script:form.BackColor = $script:bgDark
 $script:form.ForeColor = $script:textWhite
 $script:form.Font = New-Object System.Drawing.Font("Segoe UI Emoji", 9)
 
-# --- HELPER FUNCTION 1: WINGET INSTALLER ---
+# --- HELPER FUNCTION: ROUNDED CORNERS MATH ---
+function script:Get-RoundedRegion {
+    param($w, $h, $r)
+    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $d = $r * 2
+    if ($w -lt $d -or $h -lt $d) { return $null }
+    $path.AddArc(0, 0, $d, $d, 180, 90)
+    $path.AddArc($w - $d, 0, $d, $d, 270, 90)
+    $path.AddArc($w - $d, $h - $d, $d, $d, 0, 90)
+    $path.AddArc(0, $h - $d, $d, $d, 90, 90)
+    $path.CloseFigure()
+    return New-Object System.Drawing.Region($path)
+}
+
+# --- HELPER FUNCTION: WINGET INSTALLER ---
 function script:Install-App {
     param($appName, $wingetId)
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Host "Starting installation for $appName..." -ForegroundColor Cyan
-        $cmd = "winget install --id $wingetId --silent --accept-package-agreements --accept-source-agreements"
-        Invoke-Expression $cmd
+        Invoke-Expression "winget install --id $wingetId --silent --accept-package-agreements --accept-source-agreements"
         [System.Windows.Forms.MessageBox]::Show("$appName installation process finished.")
     }
 }
 
-# --- HELPER FUNCTION 2: GITHUB CUSTOM INSTALLER ---
+# --- HELPER FUNCTION: GITHUB CUSTOM INSTALLER ---
 function script:Install-CustomApp {
     param($appName, $fileName, $isMsi, $installArgs)
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Host "Downloading $appName from GitHub..." -ForegroundColor Cyan
-        
         $directUrl = "https://github.com/ryan02-png/PC_Setup/raw/refs/heads/main/$fileName"
         $tempFile = "$env:TEMP\$fileName"
         
         try {
             Invoke-WebRequest -Uri $directUrl -OutFile $tempFile -UseBasicParsing
-            
-            if ((Get-Item $tempFile).Length -lt 100KB) {
-                [System.Windows.Forms.MessageBox]::Show("Download failed. Make sure you uploaded '$fileName' to your GitHub repo!")
-                return
-            }
-
+            if ((Get-Item $tempFile).Length -lt 100KB) { return }
             Write-Host "Installing $appName silently..." -ForegroundColor Cyan
             
-            if ($isMsi) {
-                $msiArgs = @("/i", "`"$tempFile`"") + $installArgs
-                Start-Process -FilePath "msiexec.exe" -ArgumentList $msiArgs -Wait -NoNewWindow
-            } else {
-                Start-Process -FilePath $tempFile -ArgumentList $installArgs -Wait -NoNewWindow
-            }
+            if ($isMsi) { Start-Process -FilePath "msiexec.exe" -ArgumentList (@("/i", "`"$tempFile`"") + $installArgs) -Wait -NoNewWindow } 
+            else { Start-Process -FilePath $tempFile -ArgumentList $installArgs -Wait -NoNewWindow }
             
             Remove-Item -Path $tempFile -Force
             [System.Windows.Forms.MessageBox]::Show("$appName installation finished.")
-        } catch {
-            [System.Windows.Forms.MessageBox]::Show("Error downloading or installing $appName. Check the file link.")
-        }
+        } catch { [System.Windows.Forms.MessageBox]::Show("Error downloading/installing $appName.") }
     }
 }
 
-# --- HELPER FUNCTION 3: MENU BUTTON STYLER ---
+# --- HELPER FUNCTION: MENU BUTTON STYLER ---
 function script:Create-MenuButton ($text, $yPos, $action) {
     $btn = New-Object System.Windows.Forms.Button
-    $btn.Text = $text
-    $btn.Location = "50,$yPos"
-    $btn.Size = "330,45"
-    # This anchor makes the button stretch horizontally when resizing the window
+    $btn.Text = $text; $btn.Location = "50,$yPos"; $btn.Size = "330,45"
     $btn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
     $btn.FlatStyle = "Flat"
-    $btn.BackColor = $script:btnGray
-    $btn.ForeColor = $script:textWhite
-    $btn.FlatAppearance.BorderColor = $script:borderGray
+    $btn.FlatAppearance.BorderSize = 0 # Remove border for smooth edges
+    $btn.BackColor = $script:btnGray; $btn.ForeColor = $script:textWhite
     $btn.Add_Click($action)
+    
+    # Apply rounded corners and update them if window is resized
+    $btn.Region = script:Get-RoundedRegion $btn.Width $btn.Height 15
+    $btn.Add_SizeChanged({ $this.Region = script:Get-RoundedRegion $this.Width $this.Height 15 })
     return $btn
+}
+
+# --- HELPER FUNCTION: BACK BUTTON STYLER ---
+function script:Create-BackButton ($action) {
+    $btnBack = New-Object System.Windows.Forms.Button
+    $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"
+    $btnBack.FlatStyle = "Flat"; $btnBack.FlatAppearance.BorderSize = 0
+    $btnBack.BackColor = $script:btnGray
+    $btnBack.Add_Click($action)
+    $btnBack.Region = script:Get-RoundedRegion $btnBack.Width $btnBack.Height 12
+    return $btnBack
 }
 
 # --- FUNCTION 1: MAIN MENU ---
@@ -95,11 +105,8 @@ function script:Show-Main-Menu {
     $script:form.Controls.Clear()
     
     $lbl = New-Object System.Windows.Forms.Label
-    $lbl.Text = "Ryan Standardization"
-    $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
-    $lbl.Location = "0,25"
-    $lbl.Size = "450,40"
-    $lbl.TextAlign = "MiddleCenter"
+    $lbl.Text = "Ryan Standardization"; $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
+    $lbl.Location = "0,25"; $lbl.Size = "450,40"; $lbl.TextAlign = "MiddleCenter"
     $lbl.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
 
     $btn1 = script:Create-MenuButton "👤 Local Admin User Setup" 80 { Start-Process "lusrmgr.msc" }
@@ -108,32 +115,21 @@ function script:Show-Main-Menu {
     $btn4 = script:Create-MenuButton "🎛️ Control Panel" 260 { Start-Process "control" }
     
     $btn5 = script:Create-MenuButton "🛠️ System Repair (SFC / DISM)" 320 { 
-        $msg = [System.Windows.Forms.MessageBox]::Show("Open new window to repair Windows? (Takes 15 mins)", "System Repair", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        if ($msg -eq [System.Windows.Forms.DialogResult]::OK) {
-            $repairCmd = "-NoExit -Command `"Write-Host 'Running DISM...' -ForegroundColor Cyan; DISM /Online /Cleanup-Image /RestoreHealth; Write-Host '`nRunning SFC...' -ForegroundColor Cyan; sfc /scannow; Write-Host '`nRepair Complete!' -ForegroundColor Green`""
-            Start-Process powershell.exe -ArgumentList $repairCmd
+        if ([System.Windows.Forms.MessageBox]::Show("Repair Windows? (15 mins)", "System Repair", 1, 48) -eq 1) {
+            Start-Process powershell.exe -ArgumentList "-NoExit -Command `"Write-Host 'Running DISM...' -F Cyan; DISM /Online /Cleanup-Image /RestoreHealth; Write-Host '`nRunning SFC...' -F Cyan; sfc /scannow`""
         }
     }
 
     $btn6 = script:Create-MenuButton "🧹 Storage & Browser Cleanup" 380 { 
-        $msg = [System.Windows.Forms.MessageBox]::Show("Force-close browsers, wipe Temp files, Cache, History, and Windows Update cache?", "Storage Cleanup", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        if ($msg -eq [System.Windows.Forms.DialogResult]::OK) {
-            Write-Host "Cleaning up system..." -ForegroundColor Yellow
+        if ([System.Windows.Forms.MessageBox]::Show("Wipe Temp, Cache, and Windows Updates?", "Cleanup", 1, 48) -eq 1) {
             $oldAction = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
-
             Stop-Process -Name chrome, msedge, firefox, brave -Force
-
-            Get-ChildItem -Path $env:TEMP -Recurse -Force | Remove-Item -Recurse -Force
-            Get-ChildItem -Path "$env:WINDIR\Temp" -Recurse -Force | Remove-Item -Recurse -Force
-            Get-ChildItem -Path "$env:WINDIR\Prefetch" -Recurse -Force | Remove-Item -Recurse -Force
-
+            Get-ChildItem -Path $env:TEMP, "$env:WINDIR\Temp", "$env:WINDIR\Prefetch" -Recurse -Force | Remove-Item -Recurse -Force
             Stop-Service -Name wuauserv -Force
             Get-ChildItem -Path "$env:WINDIR\SoftwareDistribution\Download" -Recurse -Force | Remove-Item -Recurse -Force
             Start-Service -Name wuauserv
-
-            $paths = @("$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\History", "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\History", "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\History", "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cache2\*")
+            $paths = @("$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cache2\*")
             foreach ($p in $paths) { Remove-Item -Path $p -Recurse -Force }
-            
             $ErrorActionPreference = $oldAction
             [System.Windows.Forms.MessageBox]::Show("Cleanup complete!")
         }
@@ -145,56 +141,40 @@ function script:Show-Main-Menu {
 # --- FUNCTION 2: GPO MENU ---
 function script:Show-GPO-Menu {
     $script:form.Controls.Clear()
-    
-    $btnBack = New-Object System.Windows.Forms.Button
-    $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
-    $btnBack.BackColor = $script:btnGray; $btnBack.FlatAppearance.BorderColor = $script:borderGray
-    $btnBack.Add_Click({ script:Show-Main-Menu }) 
-
+    $btnBack = script:Create-BackButton { script:Show-Main-Menu }
     $btnComp = script:Create-MenuButton "💻 Computer Configuration" 110 { Start-Process "secpol.msc" }
     $btnUser = script:Create-MenuButton "👤 User Configuration" 180 { script:Show-User-Config }
-
     $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
 }
 
 # --- FUNCTION 3: USER CONFIGURATION (BLANK) ---
 function script:Show-User-Config {
     $script:form.Controls.Clear()
-    $btnBack = New-Object System.Windows.Forms.Button
-    $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
-    $btnBack.BackColor = $script:btnGray; $btnBack.FlatAppearance.BorderColor = $script:borderGray
-    $btnBack.Add_Click({ script:Show-GPO-Menu }) 
+    $btnBack = script:Create-BackButton { script:Show-GPO-Menu }
     $script:form.Controls.AddRange(@($btnBack))
 }
 
 # --- FUNCTION 4: INSTALL APPS (RESPONSIVE GRID) ---
 function script:Show-Install-Apps {
     $script:form.Controls.Clear()
-    
-    $btnBack = New-Object System.Windows.Forms.Button
-    $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
-    $btnBack.BackColor = $script:btnGray; $btnBack.FlatAppearance.BorderColor = $script:borderGray
-    $btnBack.Add_Click({ script:Show-Main-Menu }) 
+    $btnBack = script:Create-BackButton { script:Show-Main-Menu }
 
-    # FlowLayoutPanel automatically handles responsive wrapping!
     $panel = New-Object System.Windows.Forms.FlowLayoutPanel
-    $panel.Location = "15,60"
-    $panel.Size = "400,480"
+    $panel.Location = "15,60"; $panel.Size = "400,480"
     $panel.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
     $panel.AutoScroll = $true
 
     function Add-WidgetBtn ($emoji, $text, $action) {
         $b = New-Object System.Windows.Forms.Button
         $b.Size = "115,115"
-        $b.Margin = New-Object System.Windows.Forms.Padding(6) # Spacing between tiles
-        $b.FlatStyle = "Flat"
-        $b.BackColor = $script:btnGray
-        $b.ForeColor = $script:textWhite
-        $b.FlatAppearance.BorderColor = $script:borderGray
-        
-        $b.Text = "$emoji`n`n$text"
-        $b.TextAlign = "MiddleCenter"
+        $b.Margin = New-Object System.Windows.Forms.Padding(6) 
+        $b.FlatStyle = "Flat"; $b.FlatAppearance.BorderSize = 0
+        $b.BackColor = $script:btnGray; $b.ForeColor = $script:textWhite
+        $b.Text = "$emoji`n`n$text"; $b.TextAlign = "MiddleCenter"
         $b.Add_Click($action)
+        
+        # Apply rounded corners to grid widgets (Radius 18 for a nice oval square)
+        $b.Region = script:Get-RoundedRegion $b.Width $b.Height 18
         $panel.Controls.Add($b)
     }
 
