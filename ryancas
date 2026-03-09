@@ -1,4 +1,4 @@
-# Ensure secure connection to GitHub
+# Ensure secure connection
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # 1. Admin Check
@@ -10,15 +10,14 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# --- CREATE THE BASE FORM FIRST ---
+# --- INITIALIZE THE WINDOW ---
 $script:form = New-Object System.Windows.Forms.Form
 $script:form.Text = "Ryan Standardization"
 $script:form.Size = "450,550"
 $script:form.StartPosition = "CenterScreen"
 $script:form.BackColor = "White"
 
-# --- DEFINE ALL FUNCTIONS BEFORE CALLING THEM ---
-
+# --- FUNCTION 1: MAIN MENU ---
 function script:Show-Main-Menu {
     $script:form.Controls.Clear()
     
@@ -32,12 +31,12 @@ function script:Show-Main-Menu {
 
     $btn2 = New-Object System.Windows.Forms.Button
     $btn2.Text = "2. GP Edit Setup"; $btn2.Location = "75,180"; $btn2.Size = "300,50"; $btn2.FlatStyle = "Flat"
-    $btn2.Add_Click({ script:Show-GPO-Menu }) # FIXED: Points to GPO Menu
+    $btn2.Add_Click({ script:Show-GPO-Menu }) # Points to the next menu
 
     $btn3 = New-Object System.Windows.Forms.Button
-    $btn3.Text = "3. Install Apps"; $btn3.Location = "75,250"; $btn3.Size = "300,50"; $btn3.FlatStyle = "Flat"
+    $btn3.Text = "3. Install Apps"; $btn3.Location = "75,250"; $btn3.Size = "300,50"; $btn3.Font = New-Object System.Drawing.Font("Segoe UI", 10); $btn3.FlatStyle = "Flat"
     $btn3.Add_Click({ 
-        Write-Host "Installing Apps..." -ForegroundColor Yellow
+        Write-Host "Installing Chrome and VLC..." -ForegroundColor Yellow
         winget install --id Google.Chrome --silent --accept-package-agreements
         winget install --id VideoLAN.VLC --silent
     })
@@ -45,12 +44,14 @@ function script:Show-Main-Menu {
     $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3))
 }
 
+# --- FUNCTION 2: GPO MENU ---
 function script:Show-GPO-Menu {
     $script:form.Controls.Clear()
     
+    # Direct Back Button to Main Menu
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
-    $btnBack.Add_Click({ script:Show-Main-Menu }) # FIXED: Points back to Main
+    $btnBack.Add_Click({ script:Show-Main-Menu }) 
 
     $btnComp = New-Object System.Windows.Forms.Button
     $btnComp.Text = "Computer Configuration"; $btnComp.Location = "75,110"; $btnComp.Size = "300,50"; $btnComp.FlatStyle = "Flat"
@@ -58,23 +59,22 @@ function script:Show-GPO-Menu {
 
     $btnUser = New-Object System.Windows.Forms.Button
     $btnUser.Text = "User Configuration"; $btnUser.Location = "75,180"; $btnUser.Size = "300,50"; $btnUser.FlatStyle = "Flat"
-    $btnUser.Add_Click({ script:Show-User-Config }) # FIXED: Points to User Config
+    $btnUser.Add_Click({ script:Show-User-Config }) 
 
     $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
 }
 
+# --- FUNCTION 3: USER CONFIGURATION ---
 function script:Show-User-Config {
     $script:form.Controls.Clear()
 
+    # Direct Back Button to GPO Menu
     $btnBack = New-Object System.Windows.Forms.Button
     $btnBack.Text = "← Back"; $btnBack.Location = "15,15"; $btnBack.Size = "80,30"; $btnBack.FlatStyle = "Flat"
-    $btnBack.Add_Click({ script:Show-GPO-Menu }) # FIXED: Points back to GPO
-
-    $lblUser = New-Object System.Windows.Forms.Label
-    $lblUser.Text = "User Configuration"; $lblUser.Location = "0,60"; $lblUser.Size = "450,30"; $lblUser.TextAlign = "MiddleCenter"; $lblUser.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+    $btnBack.Add_Click({ script:Show-GPO-Menu }) 
 
     $panel = New-Object System.Windows.Forms.Panel
-    $panel.Location = "50,100"; $panel.Size = "350,300"; $panel.AutoScroll = $true
+    $panel.Location = "50,80"; $panel.Size = "350,300"; $panel.AutoScroll = $true
 
     $opts = @("Remove Shutdown Button", "Hide Search", "Remove Notification Center", "Remove Pinned Apps", "Prevent Wallpaper Changes", "Disable USB Storage (User)", "Disable Microsoft Store (User)")
     $checks = @()
@@ -88,15 +88,16 @@ function script:Show-User-Config {
     }
 
     $btnConfirm = New-Object System.Windows.Forms.Button
-    $btnConfirm.Text = "Confirm Changes"; $btnConfirm.Location = "125,430"; $btnConfirm.Size = "200,45"; $btnConfirm.BackColor = "LightGray"; $btnConfirm.FlatStyle = "Flat"
+    $btnConfirm.Text = "Confirm Changes"; $btnConfirm.Location = "125,420"; $btnConfirm.Size = "200,45"; $btnConfirm.BackColor = "LightGray"; $btnConfirm.FlatStyle = "Flat"
     $btnConfirm.Add_Click({
-        [System.Windows.Forms.MessageBox]::Show("Applied!")
+        # Applied message then go back to start
+        [System.Windows.Forms.MessageBox]::Show("Standardization Applied!")
         script:Show-Main-Menu
     })
 
-    $script:form.Controls.AddRange(@($btnBack, $lblUser, $panel, $btnConfirm))
+    $script:form.Controls.AddRange(@($btnBack, $panel, $btnConfirm))
 }
 
-# --- LAUNCH THE TOOL ---
+# --- START ---
 script:Show-Main-Menu
 $script:form.ShowDialog()
