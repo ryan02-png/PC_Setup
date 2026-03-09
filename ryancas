@@ -160,11 +160,6 @@ function script:Show-Install-Apps {
         $b.TextAlign = "MiddleCenter"
         $b.Add_Click($action)
 
-        # LATER WHEN YOU HAVE IMAGES:
-        # $b.BackgroundImage = [System.Drawing.Image]::FromFile("C:\path\to\icon.png")
-        # $b.BackgroundImageLayout = "Zoom"
-        # $b.Text = "" 
-
         $panel.Controls.Add($b)
         $script:appIndex++
     }
@@ -172,12 +167,15 @@ function script:Show-Install-Apps {
     # WINGET APPS
     Add-WidgetBtn "🌐" "Chrome" { script:Install-App "Chrome" "Google.Chrome" }
     Add-WidgetBtn "🦊" "Firefox" { script:Install-App "Firefox" "Mozilla.Firefox" }
+    Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
     Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" }
+    Add-WidgetBtn "🐦" "Lark" { script:Install-App "Lark" "LarkTechnologies.Lark" }
     Add-WidgetBtn "📊" "Office 365" { script:Install-App "Microsoft 365" "Microsoft.Office" }
     Add-WidgetBtn "💻" "VS Code" { script:Install-App "VS Code" "Microsoft.VisualStudioCode" }
     Add-WidgetBtn "📝" "LibreOffice" { script:Install-App "LibreOffice" "TheDocumentFoundation.LibreOffice" }
     Add-WidgetBtn "📄" "LightPDF" { script:Install-App "LightPDF" "LightPDF.LightPDF" }
     Add-WidgetBtn "🛡️" "Pritunl" { script:Install-App "Pritunl" "Pritunl.Pritunl" }
+    Add-WidgetBtn "🖥️" "TightVNC" { script:Install-App "TightVNC" "TightVNC.TightVNC" }
 
     # CUSTOM GITHUB APPS
     Add-WidgetBtn "🖥️" "AnyDesk" { 
