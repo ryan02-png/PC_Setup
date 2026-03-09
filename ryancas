@@ -1,0 +1,38 @@
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+# --- CREATE THE WINDOW ---
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "IT Helpdesk Deployment Tool"
+$form.Size = New-Object System.Drawing.Size(400,300)
+$form.StartPosition = "CenterScreen"
+
+# --- BUTTON 1: STANDARDIZE ---
+$btnStd = New-Object System.Windows.Forms.Button
+$btnStd.Location = New-Object System.Drawing.Point(50,30)
+$btnStd.Size = New-Object System.Drawing.Size(300,40)
+$btnStd.Text = "1. Standardize PC (Bloatware/Settings)"
+$btnStd.Add_Click({
+    Write-Host "Running Standardization..." -ForegroundColor Cyan
+    # Add your code here: e.g., Set-ExecutionPolicy, Rename PC, etc.
+    [System.Windows.Forms.MessageBox]::Show("Standardization Complete!")
+})
+
+# --- BUTTON 2: INSTALL APPS ---
+$btnApps = New-Object System.Windows.Forms.Button
+$btnApps.Location = New-Object System.Drawing.Point(50,80)
+$btnApps.Size = New-Object System.Drawing.Size(300,40)
+$btnApps.Text = "2. Install Standard Apps (Winget)"
+$btnApps.Add_Click({
+    Write-Host "Installing Chrome, VLC, and VS Code..." -ForegroundColor Yellow
+    winget install --id Google.Chrome --silent --accept-package-agreements
+    winget install --id VideoLAN.VLC --silent
+    [System.Windows.Forms.MessageBox]::Show("Apps Installed successfully!")
+})
+
+# --- ADD TO FORM ---
+$form.Controls.Add($btnStd)
+$form.Controls.Add($btnApps)
+
+# --- SHOW IT ---
+$form.ShowDialog()
