@@ -66,36 +66,40 @@ function Show-User-Config {
     $btnConfirm.Text = "Confirm"; $btnConfirm.Location = "300,450"; $btnConfirm.Size = "100,40"
     
     $btnConfirm.Add_Click({
-        # --- GPO REGISTRY PATHS ---
-        $polExplorer = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-        $polSystem = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System"
+        # Define the Registry Path for GPO Administrative Templates
         $polStore = "HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore"
+        $polExplorer = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
 
-        if (!(Test-Path $polExplorer)) { New-Item $polExplorer -Force }
-        if (!(Test-Path $polSystem)) { New-Item $polSystem -Force }
-        if (!(Test-Path $polStore)) { New-Item $polStore -Force }
+        # Create the Path if it doesn't exist
+        if (!(Test-Path $polStore)) { New-Item $polStore -Force | Out-Null }
+        if (!(Test-Path $polExplorer)) { New-Item $polExplorer -Force | Out-Null }
 
-        # 1. Shutdown Button
-        if ($chkShutdown.Checked) { Set-ItemProperty $polExplorer -Name "NoClose" -Value 1 -Type DWord }
-        # 2. Hide Search (Taskbar)
-        if ($chkSearch.Checked) { Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value 0 -Type DWord }
-        # 3. Notification Center
-        if ($chkNotif.Checked) { Set-ItemProperty $polExplorer -Name "DisableNotificationCenter" -Value 1 -Type DWord }
-        # 4. Pinned Apps (Hide Taskbar buttons)
-        if ($chkPinned.Checked) { Set-ItemProperty $polExplorer -Name "NoTaskGrouping" -Value 1 -Type DWord }
-        # 5. Prevent Wallpaper Changes
-        if ($chkWall.Checked) { Set-ItemProperty $polActiveDesktop -Name "NoChangingWallPaper" -Value 1 -Type DWord }
-        # 6. Disable USB Storage (System Level)
-        if ($chkUSB.Checked) { Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR" -Name "Start" -Value 4 -Type DWord }
-        # 7. Disable Microsoft Store (GPO Method)
-        if ($chkStore.Checked) { Set-ItemProperty $polStore -Name "RemoveWindowsStore" -Value 1 -Type DWord }
-        # 8. Disable Search Service
-        if ($chkWinSearch.Checked) { Stop-Service WSearch -ErrorAction SilentlyContinue; Set-Service WSearch -StartupType Disabled }
+        # --- APPLY GPO SETTINGS ---
+        
+        # Disable Microsoft Store (Administrative Templates > Windows Components > Store)
+        if ($chkStore.Checked) { 
+            Set-ItemProperty -Path $polStore -Name "RemoveWindowsStore" -Value 1 -Type DWord 
+        }
 
+        # Hide Search (Registry Method)
+        if ($chkSearch.Checked) { 
+            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value 0 -Type DWord 
+        }
+
+        # Remove Shutdown (Administrative Templates > Start Menu and Taskbar)
+        if ($chkShutdown.Checked) { 
+            Set-ItemProperty -Path $polExplorer -Name "NoClose" -Value 1 -Type DWord 
+        }
+
+        # Disable USB Storage (System Level)
+        if ($chkUSB.Checked) { 
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR" -Name "Start" -Value 4 -Type DWord 
+        }
+
+        # Apply Changes
         gpupdate /force
-        # Restart explorer to refresh UI
         Stop-Process -Name explorer -Force
-        [System.Windows.Forms.MessageBox]::Show("GPO Policies applied! Windows Explorer has been restarted.")
+        [System.Windows.Forms.MessageBox]::Show("GPO Settings Applied via Administrative Template Registry Paths!")
         $ucForm.Close()
     })
 
