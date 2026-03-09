@@ -106,17 +106,20 @@ function script:Show-Main-Menu {
         if ($msg -eq [System.Windows.Forms.DialogResult]::OK) {
             Write-Host "Cleaning up system..." -ForegroundColor Yellow
             
-            Stop-Process -Name chrome, msedge, firefox, brave -Force -ErrorAction SilentlyContinue
+            # Master override to hide all file lock/missing errors
+            $oldErrorAction = $ErrorActionPreference
+            $ErrorActionPreference = 'SilentlyContinue'
 
-            # Safe Deletion Method
-            Get-ChildItem -Path $env:TEMP -Force -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-            Get-ChildItem -Path "$env:WINDIR\Temp" -Force -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-            Get-ChildItem -Path "$env:WINDIR\Prefetch" -Force -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+            Stop-Process -Name chrome, msedge, firefox, brave -Force
+
+            Get-ChildItem -Path $env:TEMP -Recurse -Force | Remove-Item -Recurse -Force
+            Get-ChildItem -Path "$env:WINDIR\Temp" -Recurse -Force | Remove-Item -Recurse -Force
+            Get-ChildItem -Path "$env:WINDIR\Prefetch" -Recurse -Force | Remove-Item -Recurse -Force
 
             Write-Host "Clearing Windows Update Cache..." -ForegroundColor Yellow
-            Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
-            Get-ChildItem -Path "$env:WINDIR\SoftwareDistribution\Download" -Force -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-            Start-Service -Name wuauserv -ErrorAction SilentlyContinue
+            Stop-Service -Name wuauserv -Force
+            Get-ChildItem -Path "$env:WINDIR\SoftwareDistribution\Download" -Recurse -Force | Remove-Item -Recurse -Force
+            Start-Service -Name wuauserv
 
             $browserPaths = @(
                 "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache\Cache_Data\*",
@@ -129,8 +132,11 @@ function script:Show-Main-Menu {
             )
             
             foreach ($path in $browserPaths) { 
-                Get-ChildItem -Path $path -Force -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue 
+                Remove-Item -Path $path -Recurse -Force 
             }
+
+            # Restore normal error reporting
+            $ErrorActionPreference = $oldErrorAction
 
             [System.Windows.Forms.MessageBox]::Show("Cleanup complete! System Temp, Browser Data, and Windows Update cache have been wiped.")
         }
