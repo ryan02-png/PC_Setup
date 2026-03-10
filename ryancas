@@ -166,7 +166,7 @@ function script:Show-System-Cleanup {
     $script:form.Controls.Clear()
     $btnBack = script:Create-BackButton { script:Show-Main-Menu }
 
-    $btnBrowser = script:Create-MenuButton "🌐 Browser Cleanup" 110 { 
+    $btnBrowser = script:Create-MenuButton "🌐 Browser Cleanup (Cache & History)" 110 { 
         if ([System.Windows.Forms.MessageBox]::Show("Force close browsers and wipe Cache & History?", "Browser Cleanup", 1, 48) -eq 1) {
             Write-Host "Cleaning up browsers..." -ForegroundColor Yellow
             $oldAction = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
@@ -189,16 +189,18 @@ function script:Show-System-Cleanup {
             foreach ($p in $paths) { Remove-Item -Path $p -Recurse -Force }
             
             $ErrorActionPreference = $oldAction
-            [System.Windows.Forms.MessageBox]::Show("Browser Cleanup complete!")
+            [System.Windows.Forms.MessageBox]::Show("Browser Cache & History Cleanup complete!")
         }
     }
 
     $btnStorage = script:Create-MenuButton "💾 Storage Cleanup" 180 { 
-        if ([System.Windows.Forms.MessageBox]::Show("Wipe Temp files, Prefetch, and Windows Update Cache?", "Storage Cleanup", 1, 48) -eq 1) {
+        if ([System.Windows.Forms.MessageBox]::Show("Wipe Temp, Prefetch, Recycle Bin, Crash Dumps, and Update Cache?", "Storage Cleanup", 1, 48) -eq 1) {
             Write-Host "Cleaning up storage..." -ForegroundColor Yellow
             $oldAction = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
             
             Get-ChildItem -Path $env:TEMP, "$env:WINDIR\Temp", "$env:WINDIR\Prefetch" -Recurse -Force | Remove-Item -Recurse -Force
+            Clear-RecycleBin -Force
+            Get-ChildItem -Path "$env:ProgramData\Microsoft\Windows\WER\ReportArchive", "$env:ProgramData\Microsoft\Windows\WER\ReportQueue" -Recurse -Force | Remove-Item -Recurse -Force
             
             Stop-Service -Name wuauserv -Force
             Get-ChildItem -Path "$env:WINDIR\SoftwareDistribution\Download" -Recurse -Force | Remove-Item -Recurse -Force
@@ -209,7 +211,32 @@ function script:Show-System-Cleanup {
         }
     }
 
-    $script:form.Controls.AddRange(@($btnBack, $btnBrowser, $btnStorage))
+    $btnCookies = script:Create-MenuButton "🍪 Wipe Browser Cookies" 250 {
+        $warningMsg = "WARNING: Wiping cookies will forcefully log you out of all active website sessions (Office 365, emails, internal tools, etc.) and reset site preferences.`n`nAre you sure you want to proceed?"
+        if ([System.Windows.Forms.MessageBox]::Show($warningMsg, "Wipe Cookies Warning", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning) -eq [System.Windows.Forms.DialogResult]::Yes) {
+            Write-Host "Wiping browser cookies..." -ForegroundColor Yellow
+            $oldAction = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
+            
+            Get-Process -Name chrome, msedge, firefox, brave -ErrorAction SilentlyContinue | Stop-Process -Force
+            Start-Sleep -Seconds 2
+            
+            $cookiePaths = @(
+                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Cookies",
+                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Network\Cookies",
+                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Cookies",
+                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Network\Cookies",
+                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\Cookies",
+                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\Network\Cookies",
+                "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cookies.sqlite"
+            )
+            foreach ($p in $cookiePaths) { Remove-Item -Path $p -Recurse -Force }
+            
+            $ErrorActionPreference = $oldAction
+            [System.Windows.Forms.MessageBox]::Show("Browser Cookies have been wiped. You will need to log back into your websites.")
+        }
+    }
+
+    $script:form.Controls.AddRange(@($btnBack, $btnBrowser, $btnStorage, $btnCookies))
 }
 
 # --- FUNCTION 5: INSTALL APPS (RESPONSIVE GRID) ---
