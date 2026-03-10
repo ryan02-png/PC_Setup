@@ -52,19 +52,17 @@ function script:Install-App {
     }
 }
 
-# --- HELPER FUNCTION: GITHUB CUSTOM INSTALLER ---
+# --- HELPER FUNCTION: CUSTOM INSTALLER (NOW ACCEPTS FULL URLS) ---
 function script:Install-CustomApp {
-    param($appName, $fileName, $isMsi, $installArgs)
+    param($appName, $fullUrl, $fileName, $isMsi, $installArgs)
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-        Write-Host "Downloading $appName from GitHub..." -ForegroundColor Cyan
+        Write-Host "Downloading $appName..." -ForegroundColor Cyan
         
-        # Uses raw endpoint so it doesn't download the GitHub HTML page
-        $directUrl = "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/$fileName"
         $tempFile = "$env:TEMP\$fileName"
         
         try {
-            Invoke-WebRequest -Uri $directUrl -OutFile $tempFile -UseBasicParsing
+            Invoke-WebRequest -Uri $fullUrl -OutFile $tempFile -UseBasicParsing
             if ((Get-Item $tempFile).Length -lt 100KB) { 
                 [System.Windows.Forms.MessageBox]::Show("Download failed. File is too small.")
                 return 
@@ -132,7 +130,7 @@ function script:Show-Main-Menu {
             $oldAction = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
             
             Get-Process -Name chrome, msedge, firefox, brave -ErrorAction SilentlyContinue | Stop-Process -Force
-            Start-Sleep -Seconds 2 # Allow time for browsers to close
+            Start-Sleep -Seconds 2
             
             Get-ChildItem -Path $env:TEMP, "$env:WINDIR\Temp", "$env:WINDIR\Prefetch" -Recurse -Force | Remove-Item -Recurse -Force
             
@@ -140,7 +138,6 @@ function script:Show-Main-Menu {
             Get-ChildItem -Path "$env:WINDIR\SoftwareDistribution\Download" -Recurse -Force | Remove-Item -Recurse -Force
             Start-Service -Name wuauserv
             
-            # Using wildcards (*) for User Data since profiles aren't always named 'Default'
             $paths = @(
                 "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Cache\Cache_Data\*",
                 "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Cache\Cache_Data\*",
@@ -205,20 +202,17 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "📊" "Office 365" { script:Install-App "Microsoft 365" "Microsoft.Office" }
     Add-WidgetBtn "💻" "VS Code" { script:Install-App "VS Code" "Microsoft.VisualStudioCode" }
     Add-WidgetBtn "📝" "LibreOffice" { script:Install-App "LibreOffice" "TheDocumentFoundation.LibreOffice" }
-    Add-WidgetBtn "🛡️" "Pritunl" { script:Install-App "Pritunl" "Pritunl.Pritunl" }
     Add-WidgetBtn "🖥️" "TightVNC" { script:Install-App "TightVNC" "TightVNC.TightVNC" }
     Add-WidgetBtn "🗜️" "WinRAR" { script:Install-App "WinRAR" "RARLab.WinRAR" }
     Add-WidgetBtn "🗜️" "7-Zip" { script:Install-App "7-Zip" "7zip.7zip" }
-    Add-WidgetBtn "💽" "Hasleo Clone" { script:Install-App "Hasleo Disk Clone" "Hasleo.DiskClone" }
-    
-    # INTERACTIVE WINGET APPS (Passes $false so GUI appears)
-    Add-WidgetBtn "📄" "LightPDF" { script:Install-App "LightPDF" "LightPDF.LightPDF" $false }
+    Add-WidgetBtn "🖥️" "AnyDesk (Latest)" { script:Install-App "AnyDesk Latest" "AnyDeskSoftwareGmbH.AnyDesk" }
 
-    # CUSTOM GITHUB APPS
-    Add-WidgetBtn "🖥️" "AnyDesk" { script:Install-CustomApp "AnyDesk" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
-    Add-WidgetBtn "👁️" "eyeBeam" { script:Install-CustomApp "eyeBeam" "eyebeam.exe" $false @("/S") }
-    Add-WidgetBtn "🗄️" "MySQL ODBC 64" { script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "mysql-connector-odbc-5.1.12-winx64.msi" $true @("/qn", "/norestart") }
-    Add-WidgetBtn "🗄️" "MySQL ODBC 32" { script:Install-CustomApp "MySQL ODBC 5.1 (32-bit)" "mysql-odbc-32.msi" $true @("/qn", "/norestart") }
+    # CUSTOM GITHUB APPS (USING FULL URLS)
+    Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
+    Add-WidgetBtn "👁️" "eyeBeam" { script:Install-CustomApp "eyeBeam" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/eyebeam.exe" "eyebeam.exe" $false @("/S") }
+    Add-WidgetBtn "🗄️" "MySQL ODBC 64" { script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/mysql-connector-odbc-5.1.12-winx64.msi" "mysql-odbc-64.msi" $true @("/qn", "/norestart") }
+    Add-WidgetBtn "🛡️" "Pritunl" { script:Install-CustomApp "Pritunl" "https://github.com/pritunl/pritunl-client-electron/releases/latest/download/Pritunl.exe" "pritunl.exe" $false @() }
+    Add-WidgetBtn "📄" "LightPDF" { script:Install-CustomApp "LightPDF" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/lightpdf-setup.exe" "lightpdf-setup.exe" $false @() }
 
     $script:form.Controls.AddRange(@($btnBack, $panel))
 }
