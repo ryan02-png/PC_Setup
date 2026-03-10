@@ -62,7 +62,6 @@ function script:Install-CustomApp {
         $tempFile = "$env:TEMP\$fileName"
         
         try {
-            # .NET WebClient handles redirects properly and uses a modern User-Agent
             $webClient = New-Object System.Net.WebClient
             $webClient.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
             $webClient.DownloadFile($fullUrl, $tempFile)
@@ -72,9 +71,20 @@ function script:Install-CustomApp {
                 return 
             }
             
-            Write-Host "Installing $appName silently..." -ForegroundColor Cyan
-            if ($isMsi) { Start-Process -FilePath "msiexec.exe" -ArgumentList (@("/i", "`"$tempFile`"") + $installArgs) -Wait -NoNewWindow } 
-            else { Start-Process -FilePath $tempFile -ArgumentList $installArgs -Wait -NoNewWindow }
+            Write-Host "Installing $appName..." -ForegroundColor Cyan
+            
+            if ($isMsi) { 
+                $msiArgs = @("/i", "`"$tempFile`"")
+                if ($installArgs) { $msiArgs += $installArgs }
+                Start-Process -FilePath "msiexec.exe" -ArgumentList $msiArgs -Wait -NoNewWindow 
+            } 
+            else { 
+                if ($installArgs) {
+                    Start-Process -FilePath $tempFile -ArgumentList $installArgs -Wait -NoNewWindow 
+                } else {
+                    Start-Process -FilePath $tempFile -Wait -NoNewWindow 
+                }
+            }
             
             Remove-Item -Path $tempFile -Force
             [System.Windows.Forms.MessageBox]::Show("$appName installation finished.")
@@ -211,7 +221,7 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🗜️" "7-Zip" { script:Install-App "7-Zip" "7zip.7zip" }
     Add-WidgetBtn "🖥️" "AnyDesk (Latest)" { script:Install-App "AnyDesk Latest" "AnyDeskSoftwareGmbH.AnyDesk" }
 
-    # CUSTOM GITHUB APPS
+    # CUSTOM GITHUB APPS (USING FULL URLS)
     Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
     Add-WidgetBtn "👁️" "eyeBeam" { script:Install-CustomApp "eyeBeam" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/eyebeam.exe" "eyebeam.exe" $false @("/S") }
     Add-WidgetBtn "🗄️" "MySQL ODBC 64" { script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/mysql-connector-odbc-5.1.12-winx64.msi" "mysql-odbc-64.msi" $true @("/qn", "/norestart") }
