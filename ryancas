@@ -41,11 +41,13 @@ function script:Get-RoundedRegion {
 
 # --- HELPER FUNCTION: WINGET INSTALLER ---
 function script:Install-App {
-    param($appName, $wingetId)
+    param($appName, $wingetId, $silent=$true)
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Host "Starting installation for $appName..." -ForegroundColor Cyan
-        Invoke-Expression "winget install --id $wingetId --silent --accept-package-agreements --accept-source-agreements"
+        $args = "--id $wingetId --accept-package-agreements --accept-source-agreements"
+        if ($silent) { $args += " --silent" } else { $args += " --interactive" }
+        Invoke-Expression "winget install $args"
         [System.Windows.Forms.MessageBox]::Show("$appName installation process finished.")
     }
 }
@@ -56,14 +58,19 @@ function script:Install-CustomApp {
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Host "Downloading $appName from GitHub..." -ForegroundColor Cyan
-        $directUrl = "https://github.com/ryan02-png/PC_Setup/raw/refs/heads/main/$fileName"
+        
+        # Uses raw endpoint so it doesn't download the GitHub HTML page
+        $directUrl = "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/$fileName"
         $tempFile = "$env:TEMP\$fileName"
         
         try {
             Invoke-WebRequest -Uri $directUrl -OutFile $tempFile -UseBasicParsing
-            if ((Get-Item $tempFile).Length -lt 100KB) { return }
-            Write-Host "Installing $appName silently..." -ForegroundColor Cyan
+            if ((Get-Item $tempFile).Length -lt 100KB) { 
+                [System.Windows.Forms.MessageBox]::Show("Download failed. File is too small.")
+                return 
+            }
             
+            Write-Host "Installing $appName silently..." -ForegroundColor Cyan
             if ($isMsi) { Start-Process -FilePath "msiexec.exe" -ArgumentList (@("/i", "`"$tempFile`"") + $installArgs) -Wait -NoNewWindow } 
             else { Start-Process -FilePath $tempFile -ArgumentList $installArgs -Wait -NoNewWindow }
             
@@ -79,11 +86,10 @@ function script:Create-MenuButton ($text, $yPos, $action) {
     $btn.Text = $text; $btn.Location = "50,$yPos"; $btn.Size = "330,45"
     $btn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
     $btn.FlatStyle = "Flat"
-    $btn.FlatAppearance.BorderSize = 0 # Remove border for smooth edges
+    $btn.FlatAppearance.BorderSize = 0 
     $btn.BackColor = $script:btnGray; $btn.ForeColor = $script:textWhite
     $btn.Add_Click($action)
     
-    # Apply rounded corners and update them if window is resized
     $btn.Region = script:Get-RoundedRegion $btn.Width $btn.Height 15
     $btn.Add_SizeChanged({ $this.Region = script:Get-RoundedRegion $this.Width $this.Height 15 })
     return $btn
@@ -122,14 +128,27 @@ function script:Show-Main-Menu {
 
     $btn6 = script:Create-MenuButton "🧹 Storage & Browser Cleanup" 380 { 
         if ([System.Windows.Forms.MessageBox]::Show("Wipe Temp, Cache, and Windows Updates?", "Cleanup", 1, 48) -eq 1) {
+            Write-Host "Cleaning up system..." -ForegroundColor Yellow
             $oldAction = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
-            Stop-Process -Name chrome, msedge, firefox, brave -Force
+            
+            Get-Process -Name chrome, msedge, firefox, brave -ErrorAction SilentlyContinue | Stop-Process -Force
+            Start-Sleep -Seconds 2 # Allow time for browsers to close
+            
             Get-ChildItem -Path $env:TEMP, "$env:WINDIR\Temp", "$env:WINDIR\Prefetch" -Recurse -Force | Remove-Item -Recurse -Force
+            
             Stop-Service -Name wuauserv -Force
             Get-ChildItem -Path "$env:WINDIR\SoftwareDistribution\Download" -Recurse -Force | Remove-Item -Recurse -Force
             Start-Service -Name wuauserv
-            $paths = @("$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\Default\Cache\Cache_Data\*", "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cache2\*")
+            
+            # Using wildcards (*) for User Data since profiles aren't always named 'Default'
+            $paths = @(
+                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Cache\Cache_Data\*",
+                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Cache\Cache_Data\*",
+                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\Cache\Cache_Data\*",
+                "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cache2\*"
+            )
             foreach ($p in $paths) { Remove-Item -Path $p -Recurse -Force }
+            
             $ErrorActionPreference = $oldAction
             [System.Windows.Forms.MessageBox]::Show("Cleanup complete!")
         }
@@ -172,8 +191,6 @@ function script:Show-Install-Apps {
         $b.BackColor = $script:btnGray; $b.ForeColor = $script:textWhite
         $b.Text = "$emoji`n`n$text"; $b.TextAlign = "MiddleCenter"
         $b.Add_Click($action)
-        
-        # Apply rounded corners to grid widgets (Radius 18 for a nice oval square)
         $b.Region = script:Get-RoundedRegion $b.Width $b.Height 18
         $panel.Controls.Add($b)
     }
@@ -183,19 +200,25 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🦊" "Firefox" { script:Install-App "Firefox" "Mozilla.Firefox" }
     Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
     Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" }
+    Add-WidgetBtn "💬" "Viber" { script:Install-App "Viber" "Viber.Viber" }
     Add-WidgetBtn "🐦" "Lark" { script:Install-App "Lark" "LarkTechnologies.Lark" }
     Add-WidgetBtn "📊" "Office 365" { script:Install-App "Microsoft 365" "Microsoft.Office" }
     Add-WidgetBtn "💻" "VS Code" { script:Install-App "VS Code" "Microsoft.VisualStudioCode" }
     Add-WidgetBtn "📝" "LibreOffice" { script:Install-App "LibreOffice" "TheDocumentFoundation.LibreOffice" }
-    Add-WidgetBtn "📄" "LightPDF" { script:Install-App "LightPDF" "LightPDF.LightPDF" }
     Add-WidgetBtn "🛡️" "Pritunl" { script:Install-App "Pritunl" "Pritunl.Pritunl" }
     Add-WidgetBtn "🖥️" "TightVNC" { script:Install-App "TightVNC" "TightVNC.TightVNC" }
+    Add-WidgetBtn "🗜️" "WinRAR" { script:Install-App "WinRAR" "RARLab.WinRAR" }
+    Add-WidgetBtn "🗜️" "7-Zip" { script:Install-App "7-Zip" "7zip.7zip" }
+    Add-WidgetBtn "💽" "Hasleo Clone" { script:Install-App "Hasleo Disk Clone" "Hasleo.DiskClone" }
+    
+    # INTERACTIVE WINGET APPS (Passes $false so GUI appears)
+    Add-WidgetBtn "📄" "LightPDF" { script:Install-App "LightPDF" "LightPDF.LightPDF" $false }
 
     # CUSTOM GITHUB APPS
     Add-WidgetBtn "🖥️" "AnyDesk" { script:Install-CustomApp "AnyDesk" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
-    Add-WidgetBtn "🗄️" "MySQL ODBC 64" { script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "mysql-odbc-64.msi" $true @("/qn", "/norestart") }
-    Add-WidgetBtn "🗄️" "MySQL ODBC 32" { script:Install-CustomApp "MySQL ODBC 5.1 (32-bit)" "mysql-odbc-32.msi" $true @("/qn", "/norestart") }
     Add-WidgetBtn "👁️" "eyeBeam" { script:Install-CustomApp "eyeBeam" "eyebeam.exe" $false @("/S") }
+    Add-WidgetBtn "🗄️" "MySQL ODBC 64" { script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "mysql-connector-odbc-5.1.12-winx64.msi" $true @("/qn", "/norestart") }
+    Add-WidgetBtn "🗄️" "MySQL ODBC 32" { script:Install-CustomApp "MySQL ODBC 5.1 (32-bit)" "mysql-odbc-32.msi" $true @("/qn", "/norestart") }
 
     $script:form.Controls.AddRange(@($btnBack, $panel))
 }
