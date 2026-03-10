@@ -73,7 +73,6 @@ function script:Install-CustomApp {
             
             Write-Host "Installing $appName..." -ForegroundColor Cyan
             
-            # Safe logic check to prevent the ArgumentList error
             $hasArgs = ($null -ne $installArgs) -and ($installArgs.Count -gt 0)
 
             if ($isMsi) { 
@@ -141,32 +140,7 @@ function script:Show-Main-Menu {
         }
     }
 
-    $btn6 = script:Create-MenuButton "🧹 Storage & Browser Cleanup" 380 { 
-        if ([System.Windows.Forms.MessageBox]::Show("Wipe Temp, Cache, and Windows Updates?", "Cleanup", 1, 48) -eq 1) {
-            Write-Host "Cleaning up system..." -ForegroundColor Yellow
-            $oldAction = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
-            
-            Get-Process -Name chrome, msedge, firefox, brave -ErrorAction SilentlyContinue | Stop-Process -Force
-            Start-Sleep -Seconds 2
-            
-            Get-ChildItem -Path $env:TEMP, "$env:WINDIR\Temp", "$env:WINDIR\Prefetch" -Recurse -Force | Remove-Item -Recurse -Force
-            
-            Stop-Service -Name wuauserv -Force
-            Get-ChildItem -Path "$env:WINDIR\SoftwareDistribution\Download" -Recurse -Force | Remove-Item -Recurse -Force
-            Start-Service -Name wuauserv
-            
-            $paths = @(
-                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Cache\Cache_Data\*",
-                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Cache\Cache_Data\*",
-                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\Cache\Cache_Data\*",
-                "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cache2\*"
-            )
-            foreach ($p in $paths) { Remove-Item -Path $p -Recurse -Force }
-            
-            $ErrorActionPreference = $oldAction
-            [System.Windows.Forms.MessageBox]::Show("Cleanup complete!")
-        }
-    }
+    $btn6 = script:Create-MenuButton "🧹 System Cleanup" 380 { script:Show-System-Cleanup }
     
     $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3, $btn4, $btn5, $btn6))
 }
@@ -187,7 +161,58 @@ function script:Show-User-Config {
     $script:form.Controls.AddRange(@($btnBack))
 }
 
-# --- FUNCTION 4: INSTALL APPS (RESPONSIVE GRID) ---
+# --- FUNCTION 4: SYSTEM CLEANUP MENU ---
+function script:Show-System-Cleanup {
+    $script:form.Controls.Clear()
+    $btnBack = script:Create-BackButton { script:Show-Main-Menu }
+
+    $btnBrowser = script:Create-MenuButton "🌐 Browser Cleanup" 110 { 
+        if ([System.Windows.Forms.MessageBox]::Show("Force close browsers and wipe Cache & History?", "Browser Cleanup", 1, 48) -eq 1) {
+            Write-Host "Cleaning up browsers..." -ForegroundColor Yellow
+            $oldAction = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
+            
+            Get-Process -Name chrome, msedge, firefox, brave -ErrorAction SilentlyContinue | Stop-Process -Force
+            Start-Sleep -Seconds 2
+            
+            $paths = @(
+                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Cache\Cache_Data\*",
+                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\History*",
+                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Visited Links",
+                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Cache\Cache_Data\*",
+                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\History*",
+                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Visited Links",
+                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\Cache\Cache_Data\*",
+                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\History*",
+                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\Visited Links",
+                "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cache2\*"
+            )
+            foreach ($p in $paths) { Remove-Item -Path $p -Recurse -Force }
+            
+            $ErrorActionPreference = $oldAction
+            [System.Windows.Forms.MessageBox]::Show("Browser Cleanup complete!")
+        }
+    }
+
+    $btnStorage = script:Create-MenuButton "💾 Storage Cleanup" 180 { 
+        if ([System.Windows.Forms.MessageBox]::Show("Wipe Temp files, Prefetch, and Windows Update Cache?", "Storage Cleanup", 1, 48) -eq 1) {
+            Write-Host "Cleaning up storage..." -ForegroundColor Yellow
+            $oldAction = $ErrorActionPreference; $ErrorActionPreference = 'SilentlyContinue'
+            
+            Get-ChildItem -Path $env:TEMP, "$env:WINDIR\Temp", "$env:WINDIR\Prefetch" -Recurse -Force | Remove-Item -Recurse -Force
+            
+            Stop-Service -Name wuauserv -Force
+            Get-ChildItem -Path "$env:WINDIR\SoftwareDistribution\Download" -Recurse -Force | Remove-Item -Recurse -Force
+            Start-Service -Name wuauserv
+            
+            $ErrorActionPreference = $oldAction
+            [System.Windows.Forms.MessageBox]::Show("Storage Cleanup complete!")
+        }
+    }
+
+    $script:form.Controls.AddRange(@($btnBack, $btnBrowser, $btnStorage))
+}
+
+# --- FUNCTION 5: INSTALL APPS (RESPONSIVE GRID) ---
 function script:Show-Install-Apps {
     $script:form.Controls.Clear()
     $btnBack = script:Create-BackButton { script:Show-Main-Menu }
@@ -228,8 +253,6 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
     Add-WidgetBtn "👁️" "eyeBeam" { script:Install-CustomApp "eyeBeam" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/eyebeam.exe" "eyebeam.exe" $false @("/S") }
     Add-WidgetBtn "🗄️" "MySQL ODBC 64" { script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/mysql-connector-odbc-5.1.12-winx64.msi" "mysql-odbc-64.msi" $true @("/qn", "/norestart") }
-    
-    # Passing $null fixed the parameter issue
     Add-WidgetBtn "🛡️" "Pritunl" { script:Install-CustomApp "Pritunl" "https://github.com/pritunl/pritunl-client-electron/releases/latest/download/Pritunl.exe" "pritunl.exe" $false $null }
     Add-WidgetBtn "📄" "LightPDF" { script:Install-CustomApp "LightPDF" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/lightpdf-setup.exe" "lightpdf-setup.exe" $false $null }
 
