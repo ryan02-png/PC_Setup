@@ -52,7 +52,7 @@ function script:Install-App {
     }
 }
 
-# --- HELPER FUNCTION: CUSTOM INSTALLER (.NET WEBCLIENT UPDATE) ---
+# --- HELPER FUNCTION: CUSTOM INSTALLER ---
 function script:Install-CustomApp {
     param($appName, $fullUrl, $fileName, $isMsi, $installArgs)
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
@@ -73,13 +73,16 @@ function script:Install-CustomApp {
             
             Write-Host "Installing $appName..." -ForegroundColor Cyan
             
+            # Safe logic check to prevent the ArgumentList error
+            $hasArgs = ($null -ne $installArgs) -and ($installArgs.Count -gt 0)
+
             if ($isMsi) { 
                 $msiArgs = @("/i", "`"$tempFile`"")
-                if ($installArgs) { $msiArgs += $installArgs }
+                if ($hasArgs) { $msiArgs += $installArgs }
                 Start-Process -FilePath "msiexec.exe" -ArgumentList $msiArgs -Wait -NoNewWindow 
             } 
             else { 
-                if ($installArgs) {
+                if ($hasArgs) {
                     Start-Process -FilePath $tempFile -ArgumentList $installArgs -Wait -NoNewWindow 
                 } else {
                     Start-Process -FilePath $tempFile -Wait -NoNewWindow 
@@ -225,8 +228,10 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
     Add-WidgetBtn "👁️" "eyeBeam" { script:Install-CustomApp "eyeBeam" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/eyebeam.exe" "eyebeam.exe" $false @("/S") }
     Add-WidgetBtn "🗄️" "MySQL ODBC 64" { script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/mysql-connector-odbc-5.1.12-winx64.msi" "mysql-odbc-64.msi" $true @("/qn", "/norestart") }
-    Add-WidgetBtn "🛡️" "Pritunl" { script:Install-CustomApp "Pritunl" "https://github.com/pritunl/pritunl-client-electron/releases/latest/download/Pritunl.exe" "pritunl.exe" $false @() }
-    Add-WidgetBtn "📄" "LightPDF" { script:Install-CustomApp "LightPDF" "https://github.com/ryan02-png/PC_Setup/raw/main/lightpdf-setup.exe" "lightpdf-setup.exe" $false @() }
+    
+    # Passing $null fixed the parameter issue
+    Add-WidgetBtn "🛡️" "Pritunl" { script:Install-CustomApp "Pritunl" "https://github.com/pritunl/pritunl-client-electron/releases/latest/download/Pritunl.exe" "pritunl.exe" $false $null }
+    Add-WidgetBtn "📄" "LightPDF" { script:Install-CustomApp "LightPDF" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/lightpdf-setup.exe" "lightpdf-setup.exe" $false $null }
 
     $script:form.Controls.AddRange(@($btnBack, $panel))
 }
