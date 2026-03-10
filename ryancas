@@ -154,11 +154,53 @@ function script:Show-GPO-Menu {
     $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
 }
 
-# --- FUNCTION 3: USER CONFIGURATION (BLANK) ---
+# --- FUNCTION 3: USER CONFIGURATION MENU ---
 function script:Show-User-Config {
     $script:form.Controls.Clear()
     $btnBack = script:Create-BackButton { script:Show-GPO-Menu }
-    $script:form.Controls.AddRange(@($btnBack))
+
+    $btn1 = script:Create-MenuButton "🚫 Disable USB Access" 80 { 
+        $regPath = "HKCU:\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
+        if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+        Set-ItemProperty -Path $regPath -Name "Deny_All" -Value 1 -Type DWord
+        Stop-Process -Name explorer -Force
+        [System.Windows.Forms.MessageBox]::Show("USB Access Disabled for Current User.")
+    }
+
+    $btn2 = script:Create-MenuButton "✅ Enable USB Access" 140 { 
+        $regPath = "HKCU:\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
+        if (Test-Path $regPath) { Remove-ItemProperty -Path $regPath -Name "Deny_All" -ErrorAction SilentlyContinue }
+        Stop-Process -Name explorer -Force
+        [System.Windows.Forms.MessageBox]::Show("USB Access Enabled for Current User.")
+    }
+
+    $btn3 = script:Create-MenuButton "🚫 Disable Microsoft Store" 200 { 
+        $regPath = "HKCU:\Software\Policies\Microsoft\WindowsStore"
+        if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+        Set-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -Value 1 -Type DWord
+        Stop-Process -Name explorer -Force
+        [System.Windows.Forms.MessageBox]::Show("Microsoft Store Disabled for Current User.")
+    }
+
+    $btn4 = script:Create-MenuButton "✅ Enable Microsoft Store" 260 { 
+        $regPath = "HKCU:\Software\Policies\Microsoft\WindowsStore"
+        if (Test-Path $regPath) { Remove-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -ErrorAction SilentlyContinue }
+        Stop-Process -Name explorer -Force
+        [System.Windows.Forms.MessageBox]::Show("Microsoft Store Enabled for Current User.")
+    }
+
+    $btn5 = script:Create-MenuButton "🗑️ Uninstall Built-in Apps (User)" 320 { 
+        if ([System.Windows.Forms.MessageBox]::Show("Remove Snipping Tool, Solitaire, and Outlook for this user?", "Uninstall Apps", 1, 48) -eq 1) {
+            Write-Host "Uninstalling Apps..." -ForegroundColor Yellow
+            $apps = @("Microsoft.ScreenSketch", "Microsoft.MicrosoftSolitaireCollection", "Microsoft.OutlookForWindows", "microsoft.windowscommunicationsapps")
+            foreach ($app in $apps) {
+                Get-AppxPackage -Name *$app* | Remove-AppxPackage -ErrorAction SilentlyContinue
+            }
+            [System.Windows.Forms.MessageBox]::Show("Snipping Tool, Solitaire, and Outlook removed.")
+        }
+    }
+
+    $script:form.Controls.AddRange(@($btnBack, $btn1, $btn2, $btn3, $btn4, $btn5))
 }
 
 # --- FUNCTION 4: SYSTEM CLEANUP MENU ---
