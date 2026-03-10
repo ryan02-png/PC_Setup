@@ -191,10 +191,15 @@ function script:Show-User-Config {
 
     $btn5 = script:Create-MenuButton "🗑️ Uninstall Built-in Apps (User)" 320 { 
         if ([System.Windows.Forms.MessageBox]::Show("Remove Snipping Tool, Solitaire, and Outlook for this user?", "Uninstall Apps", 1, 48) -eq 1) {
+            Write-Host "Stopping background processes..." -ForegroundColor Yellow
+            
+            # Kill processes so files aren't locked
+            Get-Process -Name SnippingTool, ScreenClippingHost, olk, MicrosoftSolitaireCollection -ErrorAction SilentlyContinue | Stop-Process -Force
+            
             Write-Host "Uninstalling Apps..." -ForegroundColor Yellow
-            $apps = @("Microsoft.ScreenSketch", "Microsoft.MicrosoftSolitaireCollection", "Microsoft.OutlookForWindows", "microsoft.windowscommunicationsapps")
+            $apps = @("*ScreenSketch*", "*SolitaireCollection*", "*OutlookForWindows*")
             foreach ($app in $apps) {
-                Get-AppxPackage -Name *$app* | Remove-AppxPackage -ErrorAction SilentlyContinue
+                Get-AppxPackage -Name $app | Remove-AppxPackage -ErrorAction SilentlyContinue
             }
             [System.Windows.Forms.MessageBox]::Show("Snipping Tool, Solitaire, and Outlook removed.")
         }
