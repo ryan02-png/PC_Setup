@@ -175,33 +175,44 @@ function script:Show-User-Config {
     }
 
     $btn3 = script:Create-MenuButton "🚫 Disable Microsoft Store" 200 { 
-        $regPath = "HKCU:\Software\Policies\Microsoft\WindowsStore"
-        if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
-        Set-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -Value 1 -Type DWord
+        # Using DisallowRun policy since MS blocked the standard Store policy on Pro/Home
+        $explPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+        $disallowPath = "$explPath\DisallowRun"
+        
+        if (-not (Test-Path $explPath)) { New-Item -Path $explPath -Force | Out-Null }
+        Set-ItemProperty -Path $explPath -Name "DisallowRun" -Value 1 -Type DWord
+        
+        if (-not (Test-Path $disallowPath)) { New-Item -Path $disallowPath -Force | Out-Null }
+        Set-ItemProperty -Path $disallowPath -Name "BlockStore" -Value "WinStore.App.exe" -Type String
+        
+        Get-Process -Name WinStore.App -ErrorAction SilentlyContinue | Stop-Process -Force
         Stop-Process -Name explorer -Force
-        [System.Windows.Forms.MessageBox]::Show("Microsoft Store Disabled for Current User.")
+        [System.Windows.Forms.MessageBox]::Show("Microsoft Store forcefully disabled for Current User.")
     }
 
     $btn4 = script:Create-MenuButton "✅ Enable Microsoft Store" 260 { 
-        $regPath = "HKCU:\Software\Policies\Microsoft\WindowsStore"
-        if (Test-Path $regPath) { Remove-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -ErrorAction SilentlyContinue }
+        $explPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+        $disallowPath = "$explPath\DisallowRun"
+        
+        if (Test-Path $disallowPath) { Remove-ItemProperty -Path $disallowPath -Name "BlockStore" -ErrorAction SilentlyContinue }
+        Set-ItemProperty -Path $explPath -Name "DisallowRun" -Value 0 -Type DWord
+        
         Stop-Process -Name explorer -Force
         [System.Windows.Forms.MessageBox]::Show("Microsoft Store Enabled for Current User.")
     }
 
-    $btn5 = script:Create-MenuButton "🗑️ Uninstall Built-in Apps (User)" 320 { 
-        if ([System.Windows.Forms.MessageBox]::Show("Remove Snipping Tool, Solitaire, and Outlook for this user?", "Uninstall Apps", 1, 48) -eq 1) {
+    $btn5 = script:Create-MenuButton "🗑️ Uninstall Built-in Apps" 320 { 
+        if ([System.Windows.Forms.MessageBox]::Show("Remove Snipping Tool, Solitaire, and Outlook for ALL users?", "Uninstall Apps", 1, 48) -eq 1) {
             Write-Host "Stopping background processes..." -ForegroundColor Yellow
-            
-            # Kill processes so files aren't locked
             Get-Process -Name SnippingTool, ScreenClippingHost, olk, MicrosoftSolitaireCollection -ErrorAction SilentlyContinue | Stop-Process -Force
             
-            Write-Host "Uninstalling Apps..." -ForegroundColor Yellow
+            Write-Host "Uninstalling Apps (All Users)..." -ForegroundColor Yellow
             $apps = @("*ScreenSketch*", "*SolitaireCollection*", "*OutlookForWindows*")
             foreach ($app in $apps) {
-                Get-AppxPackage -Name $app | Remove-AppxPackage -ErrorAction SilentlyContinue
+                # Added -AllUsers to bypass Admin account isolation limits
+                Get-AppxPackage -Name $app -AllUsers | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
             }
-            [System.Windows.Forms.MessageBox]::Show("Snipping Tool, Solitaire, and Outlook removed.")
+            [System.Windows.Forms.MessageBox]::Show("Snipping Tool, Solitaire, and Outlook completely removed.")
         }
     }
 
