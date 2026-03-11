@@ -8,8 +8,8 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 }
 
 # 2. Global Interactive User Targeting (Fixes Admin vs User conflict)
-$wmiUser = (Get-WmiObject -Class Win32_ComputerSystem).UserName
-$domain, $username = $wmiUser -split '\\'
+$script:wmiUser = (Get-WmiObject -Class Win32_ComputerSystem).UserName
+$domain, $username = $script:wmiUser -split '\\'
 $script:activeSid = (New-Object System.Security.Principal.NTAccount($domain, $username)).Translate([System.Security.Principal.SecurityIdentifier]).Value
 $script:activeProfile = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$($script:activeSid)").ProfileImagePath
 $script:activeHKCU = "Registry::HKEY_USERS\$($script:activeSid)"
@@ -60,7 +60,7 @@ function script:Install-App {
     }
 }
 
-# --- HELPER FUNCTION: CUSTOM INSTALLER ---
+# --- HELPER FUNCTION: CUSTOM INSTALLER (WITH DE-ELEVATION TRICK) ---
 function script:Install-CustomApp {
     param($appName, $fullUrl, $fileName, $isMsi, $installArgs, $runAsUser=$false)
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
@@ -81,12 +81,32 @@ function script:Install-CustomApp {
             
             Write-Host "Installing $appName..." -ForegroundColor Cyan
             
-            # De-elevation trick for per-user apps like Viber
+            # -------------------------------------------------------------
+            # THE MAGIC TRICK: Execute as Logged-in User via Scheduled Task
+            # -------------------------------------------------------------
             if ($runAsUser) {
-                Start-Process "explorer.exe" -ArgumentList $tempFile
-                [System.Windows.Forms.MessageBox]::Show("$appName installer has been launched as the standard user. Please complete the setup using the window that just opened.")
+                # Move to a public folder so the standard user has read/execute rights
+                $publicFolder = "$env:PUBLIC\Downloads"
+                if (-not (Test-Path $publicFolder)) { New-Item -Path $publicFolder -ItemType Directory -Force | Out-Null }
+                $publicTemp = "$publicFolder\$fileName"
+                Move-Item -Path $tempFile -Destination $publicTemp -Force
+
+                # Create and trigger scheduled task as the standard user
+                $action = New-ScheduledTaskAction -Execute $publicTemp
+                $principal = New-ScheduledTaskPrincipal -UserId $script:wmiUser -LogonType Interactive
+                $task = New-ScheduledTask -Action $action -Principal $principal
+                
+                Register-ScheduledTask -TaskName "RyanIT_UserInstall" -InputObject $task -Force | Out-Null
+                Start-ScheduledTask -TaskName "RyanIT_UserInstall"
+                
+                [System.Windows.Forms.MessageBox]::Show("$appName setup has been pushed to the User's screen. Please finish the installation there.")
+                
+                # Clean up the task behind the scenes
+                Start-Sleep -Seconds 2
+                Unregister-ScheduledTask -TaskName "RyanIT_UserInstall" -Confirm:$false | Out-Null
                 return
             }
+            # -------------------------------------------------------------
 
             $hasArgs = ($null -ne $installArgs) -and ($installArgs.Count -gt 0)
 
@@ -325,9 +345,9 @@ function script:Show-User-Config {
             $apps = @("*ScreenSketch*", "*SolitaireCollection*", "*OutlookForWindows*", "*communicationsapps*")
             
             foreach ($app in $apps) {
-                $packages = Get-AppxPackage -User $wmiUser -Name $app -ErrorAction SilentlyContinue
+                $packages = Get-AppxPackage -User $script:wmiUser -Name $app -ErrorAction SilentlyContinue
                 foreach ($pkg in $packages) {
-                    Remove-AppxPackage -Package $pkg.PackageFullName -User $wmiUser -ErrorAction SilentlyContinue
+                    Remove-AppxPackage -Package $pkg.PackageFullName -User $script:wmiUser -ErrorAction SilentlyContinue
                 }
             }
             [System.Windows.Forms.MessageBox]::Show("Snipping Tool, Solitaire, and Outlook completely removed for this user.")
@@ -442,7 +462,7 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
     Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" }
     
-    # Updated: Added `$true` at the end to trigger the De-elevation trick for Viber
+    # TRIGGER THE TASK INJECTION TRICK (Notice the $true at the end)
     Add-WidgetBtn "💬" "Viber" { script:Install-CustomApp "Viber" "https://download.viber.com/desktop/windows/ViberSetup.exe" "ViberSetup.exe" $false $null $true }
     
     Add-WidgetBtn "🐦" "Lark" { script:Install-App "Lark" "LarkTechnologies.Lark" }
