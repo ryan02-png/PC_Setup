@@ -7,6 +7,14 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     return
 }
 
+# 2. Global Interactive User Targeting (Fixes Admin vs User conflict)
+$wmiUser = (Get-WmiObject -Class Win32_ComputerSystem).UserName
+$domain, $username = $wmiUser -split '\\'
+$script:activeSid = (New-Object System.Security.Principal.NTAccount($domain, $username)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+$script:activeProfile = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$($script:activeSid)").ProfileImagePath
+$script:activeHKCU = "Registry::HKEY_USERS\$($script:activeSid)"
+$script:activeLocalAppData = "$($script:activeProfile)\AppData\Local"
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -234,7 +242,7 @@ function script:Show-User-Config {
     $btnBack = script:Create-BackButton { script:Show-GPO-Menu }
 
     $btn1 = script:Create-MenuButton "🚫 Disable USB Access" 80 { 
-        $regPath = "HKCU:\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
+        $regPath = "$script:activeHKCU\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
         if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
         Set-ItemProperty -Path $regPath -Name "Deny_All" -Value 1 -Type DWord
         Stop-Process -Name explorer -Force
@@ -242,7 +250,7 @@ function script:Show-User-Config {
     }
 
     $btn2 = script:Create-MenuButton "✅ Enable USB Access" 140 { 
-        $regPath = "HKCU:\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
+        $regPath = "$script:activeHKCU\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
         if (Test-Path $regPath) { Remove-ItemProperty -Path $regPath -Name "Deny_All" -ErrorAction SilentlyContinue }
         Stop-Process -Name explorer -Force
         [System.Windows.Forms.MessageBox]::Show("USB Access Enabled for Current User.")
@@ -251,7 +259,7 @@ function script:Show-User-Config {
     $btn3 = script:Create-MenuButton "🚫 Disable Microsoft Store" 200 { 
         $edition = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").EditionID
         if ($edition -match "Enterprise" -or $edition -match "Education") {
-            $regPath = "HKCU:\Software\Policies\Microsoft\WindowsStore"
+            $regPath = "$script:activeHKCU\Software\Policies\Microsoft\WindowsStore"
             if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
             Set-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -Value 1 -Type DWord
             Stop-Process -Name explorer -Force
@@ -269,7 +277,7 @@ function script:Show-User-Config {
     }
 
     $btn4 = script:Create-MenuButton "✅ Enable Microsoft Store" 260 { 
-        $regPath = "HKCU:\Software\Policies\Microsoft\WindowsStore"
+        $regPath = "$script:activeHKCU\Software\Policies\Microsoft\WindowsStore"
         if (Test-Path $regPath) { Remove-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -ErrorAction SilentlyContinue }
         Remove-NetFirewallRule -DisplayName "Block_MS_Store" -ErrorAction SilentlyContinue
         Stop-Process -Name explorer -Force
@@ -307,16 +315,16 @@ function script:Show-System-Cleanup {
             Start-Sleep -Seconds 2
             
             $paths = @(
-                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Cache\Cache_Data\*",
-                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\History*",
-                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Visited Links",
-                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Cache\Cache_Data\*",
-                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\History*",
-                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Visited Links",
-                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\Cache\Cache_Data\*",
-                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\History*",
-                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\Visited Links",
-                "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cache2\*"
+                "$script:activeLocalAppData\Google\Chrome\User Data\*\Cache\Cache_Data\*",
+                "$script:activeLocalAppData\Google\Chrome\User Data\*\History*",
+                "$script:activeLocalAppData\Google\Chrome\User Data\*\Visited Links",
+                "$script:activeLocalAppData\Microsoft\Edge\User Data\*\Cache\Cache_Data\*",
+                "$script:activeLocalAppData\Microsoft\Edge\User Data\*\History*",
+                "$script:activeLocalAppData\Microsoft\Edge\User Data\*\Visited Links",
+                "$script:activeLocalAppData\BraveSoftware\Brave-Browser\User Data\*\Cache\Cache_Data\*",
+                "$script:activeLocalAppData\BraveSoftware\Brave-Browser\User Data\*\History*",
+                "$script:activeLocalAppData\BraveSoftware\Brave-Browser\User Data\*\Visited Links",
+                "$script:activeLocalAppData\Mozilla\Firefox\Profiles\*\cache2\*"
             )
             foreach ($p in $paths) { Remove-Item -Path $p -Recurse -Force }
             
@@ -353,13 +361,13 @@ function script:Show-System-Cleanup {
             Start-Sleep -Seconds 2
             
             $cookiePaths = @(
-                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Cookies",
-                "$env:LOCALAPPDATA\Google\Chrome\User Data\*\Network\Cookies",
-                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Cookies",
-                "$env:LOCALAPPDATA\Microsoft\Edge\User Data\*\Network\Cookies",
-                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\Cookies",
-                "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data\*\Network\Cookies",
-                "$env:LOCALAPPDATA\Mozilla\Firefox\Profiles\*\cookies.sqlite"
+                "$script:activeLocalAppData\Google\Chrome\User Data\*\Cookies",
+                "$script:activeLocalAppData\Google\Chrome\User Data\*\Network\Cookies",
+                "$script:activeLocalAppData\Microsoft\Edge\User Data\*\Cookies",
+                "$script:activeLocalAppData\Microsoft\Edge\User Data\*\Network\Cookies",
+                "$script:activeLocalAppData\BraveSoftware\Brave-Browser\User Data\*\Cookies",
+                "$script:activeLocalAppData\BraveSoftware\Brave-Browser\User Data\*\Network\Cookies",
+                "$script:activeLocalAppData\Mozilla\Firefox\Profiles\*\cookies.sqlite"
             )
             foreach ($p in $cookiePaths) { Remove-Item -Path $p -Recurse -Force }
             
@@ -393,8 +401,8 @@ function script:Show-Install-Apps {
         $panel.Controls.Add($b)
     }
 
-    # Changed Chrome to $false so you can see if it prompts for anything during install
-    Add-WidgetBtn "🌐" "Chrome" { script:Install-App "Chrome" "Google.Chrome" $false }
+    # Custom MSI Installer for Chrome (Bypasses Winget limitations)
+    Add-WidgetBtn "🌐" "Chrome" { script:Install-CustomApp "Chrome" "https://dl.google.com/chrome/install/GoogleChromeStandaloneEnterprise64.msi" "ChromeEnterprise.msi" $true @("/qn", "/norestart") }
     Add-WidgetBtn "🦊" "Firefox" { script:Install-App "Firefox" "Mozilla.Firefox" }
     Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
     Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" }
@@ -424,23 +432,23 @@ function script:Show-Desktop-Layout {
     $btnBack = script:Create-BackButton { script:Show-Main-Menu }
 
     $btn1 = script:Create-MenuButton "🖼️ SPM Standardize Layout" 110 { 
-        if ([System.Windows.Forms.MessageBox]::Show("This will clear the desktop, arrange icons, hide the recycle bin, and align the taskbar. Proceed?", "Standardize Layout", 1, 48) -eq 1) {
+        if ([System.Windows.Forms.MessageBox]::Show("This will clear the desktop, arrange icons, hide the recycle bin, and align the taskbar for the CURRENT LOGGED-IN USER. Proceed?", "Standardize Layout", 1, 48) -eq 1) {
             
             Write-Host "Hiding Recycle Bin..." -ForegroundColor Yellow
-            $rbPath1 = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel"
-            $rbPath2 = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu"
+            $rbPath1 = "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel"
+            $rbPath2 = "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu"
             if (-not (Test-Path $rbPath1)) { New-Item -Path $rbPath1 -Force | Out-Null }
             if (-not (Test-Path $rbPath2)) { New-Item -Path $rbPath2 -Force | Out-Null }
             Set-ItemProperty -Path $rbPath1 -Name "{645FF040-5081-101B-9F08-00AA002F954E}" -Value 1 -Type DWord
             Set-ItemProperty -Path $rbPath2 -Name "{645FF040-5081-101B-9F08-00AA002F954E}" -Value 1 -Type DWord
 
             Write-Host "Configuring Taskbar..." -ForegroundColor Yellow
-            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarAl" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarAl" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value 0 -Type DWord -ErrorAction SilentlyContinue
 
             Write-Host "Clearing and Rebuilding Desktop Icons..." -ForegroundColor Yellow
             Remove-Item "$env:PUBLIC\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
-            Remove-Item "$env:USERPROFILE\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item "$script:activeProfile\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
 
             $WshShell = New-Object -ComObject WScript.Shell
             
@@ -449,7 +457,7 @@ function script:Show-Desktop-Layout {
             if (-not (Test-Path $chromePath)) { $chromePath = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe" }
             
             if (Test-Path $chromePath) {
-                $chrome = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\1 - Chrome.lnk")
+                $chrome = $WshShell.CreateShortcut("$script:activeProfile\Desktop\1 - Chrome.lnk")
                 $chrome.TargetPath = $chromePath
                 $chrome.Save()
             }
@@ -468,13 +476,13 @@ function script:Show-Desktop-Layout {
             }
 
             if ($excelPath) {
-                $excel = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\2 - Excel.lnk")
+                $excel = $WshShell.CreateShortcut("$script:activeProfile\Desktop\2 - Excel.lnk")
                 $excel.TargetPath = $excelPath 
                 $excel.Save()
             }
 
             if ($wordPath) {
-                $word = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\3 - Word.lnk")
+                $word = $WshShell.CreateShortcut("$script:activeProfile\Desktop\3 - Word.lnk")
                 $word.TargetPath = $wordPath
                 $word.Save()
             }
