@@ -442,9 +442,32 @@ function script:Show-Desktop-Layout {
             Set-ItemProperty -Path $rbPath1 -Name "{645FF040-5081-101B-9F08-00AA002F954E}" -Value 1 -Type DWord
             Set-ItemProperty -Path $rbPath2 -Name "{645FF040-5081-101B-9F08-00AA002F954E}" -Value 1 -Type DWord
 
-            Write-Host "Configuring Taskbar..." -ForegroundColor Yellow
+            Write-Host "Configuring Taskbar (Hiding Bloat)..." -ForegroundColor Yellow
+            # Align Taskbar to Left (Win 11) & Hide Search Bar
             Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarAl" -Value 0 -Type DWord -ErrorAction SilentlyContinue
             Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+            
+            # Hide Task View
+            Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowTaskViewButton" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+            
+            # Hide Win 11 Widgets (Weather/News)
+            Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarDa" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+            
+            # Hide Win 10 News & Interests (Weather)
+            $feedsPath = "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Feeds"
+            if (-not (Test-Path $feedsPath)) { New-Item -Path $feedsPath -Force | Out-Null }
+            Set-ItemProperty -Path $feedsPath -Name "ShellFeedsTaskbarViewMode" -Value 2 -Type DWord -ErrorAction SilentlyContinue
+            
+            # Hide Win 11 Chat / Win 10 Meet Now
+            Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarMn" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+            $polExpPath = "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+            if (-not (Test-Path $polExpPath)) { New-Item -Path $polExpPath -Force | Out-Null }
+            Set-ItemProperty -Path $polExpPath -Name "HideSCAMeetNow" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+            
+            # Disable Notification Center
+            $polExplorerPath2 = "$script:activeHKCU\Software\Policies\Microsoft\Windows\Explorer"
+            if (-not (Test-Path $polExplorerPath2)) { New-Item -Path $polExplorerPath2 -Force | Out-Null }
+            Set-ItemProperty -Path $polExplorerPath2 -Name "DisableNotificationCenter" -Value 1 -Type DWord -ErrorAction SilentlyContinue
 
             Write-Host "Clearing and Rebuilding Desktop Icons..." -ForegroundColor Yellow
             Remove-Item "$env:PUBLIC\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
