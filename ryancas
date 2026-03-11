@@ -393,7 +393,8 @@ function script:Show-Install-Apps {
         $panel.Controls.Add($b)
     }
 
-    Add-WidgetBtn "🌐" "Chrome" { script:Install-App "Chrome" "Google.Chrome" }
+    # Changed Chrome to $false so you can see if it prompts for anything during install
+    Add-WidgetBtn "🌐" "Chrome" { script:Install-App "Chrome" "Google.Chrome" $false }
     Add-WidgetBtn "🦊" "Firefox" { script:Install-App "Firefox" "Mozilla.Firefox" }
     Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
     Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" }
@@ -426,40 +427,58 @@ function script:Show-Desktop-Layout {
         if ([System.Windows.Forms.MessageBox]::Show("This will clear the desktop, arrange icons, hide the recycle bin, and align the taskbar. Proceed?", "Standardize Layout", 1, 48) -eq 1) {
             
             Write-Host "Hiding Recycle Bin..." -ForegroundColor Yellow
-            $rbPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel"
-            if (-not (Test-Path $rbPath)) { New-Item -Path $rbPath -Force | Out-Null }
-            Set-ItemProperty -Path $rbPath -Name "{645FF040-5081-101B-9F08-00AA002F954E}" -Value 1 -Type DWord
+            $rbPath1 = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel"
+            $rbPath2 = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu"
+            if (-not (Test-Path $rbPath1)) { New-Item -Path $rbPath1 -Force | Out-Null }
+            if (-not (Test-Path $rbPath2)) { New-Item -Path $rbPath2 -Force | Out-Null }
+            Set-ItemProperty -Path $rbPath1 -Name "{645FF040-5081-101B-9F08-00AA002F954E}" -Value 1 -Type DWord
+            Set-ItemProperty -Path $rbPath2 -Name "{645FF040-5081-101B-9F08-00AA002F954E}" -Value 1 -Type DWord
 
             Write-Host "Configuring Taskbar..." -ForegroundColor Yellow
-            # Align Taskbar to Left (Win 11)
             Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarAl" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-            # Hide Search Bar (Win 11)
             Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value 0 -Type DWord -ErrorAction SilentlyContinue
 
             Write-Host "Clearing and Rebuilding Desktop Icons..." -ForegroundColor Yellow
-            # Delete everything from Public and User desktop
             Remove-Item "$env:PUBLIC\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
             Remove-Item "$env:USERPROFILE\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
 
-            # Create specific shortcuts sequentially so they stack
             $WshShell = New-Object -ComObject WScript.Shell
             
             # Chrome
-            $chrome = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\1 - Chrome.lnk")
-            $chrome.TargetPath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
-            $chrome.Save()
+            $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
+            if (-not (Test-Path $chromePath)) { $chromePath = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe" }
+            
+            if (Test-Path $chromePath) {
+                $chrome = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\1 - Chrome.lnk")
+                $chrome.TargetPath = $chromePath
+                $chrome.Save()
+            }
 
-            # Excel
-            $excel = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\2 - Excel.lnk")
-            $excel.TargetPath = "C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE" 
-            $excel.Save()
+            # Office Paths Finder
+            $excelPath = ""
+            $wordPath = ""
+            $officePaths = @(
+                "$env:ProgramFiles\Microsoft Office\root\Office16",
+                "${env:ProgramFiles(x86)}\Microsoft Office\root\Office16"
+            )
 
-            # Word
-            $word = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\3 - Word.lnk")
-            $word.TargetPath = "C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE"
-            $word.Save()
+            foreach ($p in $officePaths) {
+                if (Test-Path "$p\EXCEL.EXE") { $excelPath = "$p\EXCEL.EXE" }
+                if (Test-Path "$p\WINWORD.EXE") { $wordPath = "$p\WINWORD.EXE" }
+            }
 
-            # Restart Explorer to apply icon, bin, and taskbar changes
+            if ($excelPath) {
+                $excel = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\2 - Excel.lnk")
+                $excel.TargetPath = $excelPath 
+                $excel.Save()
+            }
+
+            if ($wordPath) {
+                $word = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\3 - Word.lnk")
+                $word.TargetPath = $wordPath
+                $word.Save()
+            }
+
             Stop-Process -Name explorer -Force
             [System.Windows.Forms.MessageBox]::Show("SPM Corporate Layout Applied successfully.")
         }
