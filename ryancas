@@ -150,74 +150,14 @@ function script:Show-GPO-Menu {
     $script:form.Controls.Clear()
     $btnBack = script:Create-BackButton { script:Show-Main-Menu }
     $btnComp = script:Create-MenuButton "💻 Computer Configuration" 110 { Start-Process "secpol.msc" }
-    $btnUser = script:Create-MenuButton "👤 User Configuration" 180 { script:Show-User-Config }
+    
+    # Redirects straight to the native Group Policy Editor
+    $btnUser = script:Create-MenuButton "👤 User Configuration" 180 { Start-Process "gpedit.msc" }
+    
     $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
 }
 
-# --- FUNCTION 3: USER CONFIGURATION MENU ---
-function script:Show-User-Config {
-    $script:form.Controls.Clear()
-    $btnBack = script:Create-BackButton { script:Show-GPO-Menu }
-
-    $btn1 = script:Create-MenuButton "🚫 Disable USB Access" 80 { 
-        $regPath = "HKCU:\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
-        if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
-        Set-ItemProperty -Path $regPath -Name "Deny_All" -Value 1 -Type DWord
-        Stop-Process -Name explorer -Force
-        [System.Windows.Forms.MessageBox]::Show("USB Access Disabled for Current User.")
-    }
-
-    $btn2 = script:Create-MenuButton "✅ Enable USB Access" 140 { 
-        $regPath = "HKCU:\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
-        if (Test-Path $regPath) { Remove-ItemProperty -Path $regPath -Name "Deny_All" -ErrorAction SilentlyContinue }
-        Stop-Process -Name explorer -Force
-        [System.Windows.Forms.MessageBox]::Show("USB Access Enabled for Current User.")
-    }
-
-    $btn3 = script:Create-MenuButton "🚫 Disable Microsoft Store" 200 { 
-        $explPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-        $disallowPath = "$explPath\DisallowRun"
-        
-        if (-not (Test-Path $explPath)) { New-Item -Path $explPath -Force | Out-Null }
-        Set-ItemProperty -Path $explPath -Name "DisallowRun" -Value 1 -Type DWord
-        
-        if (-not (Test-Path $disallowPath)) { New-Item -Path $disallowPath -Force | Out-Null }
-        Set-ItemProperty -Path $disallowPath -Name "1" -Value "WinStore.App.exe" -Type String
-        
-        Get-Process -Name WinStore.App -ErrorAction SilentlyContinue | Stop-Process -Force
-        Stop-Process -Name explorer -Force
-        [System.Windows.Forms.MessageBox]::Show("Microsoft Store forcefully disabled for Current User.")
-    }
-
-    $btn4 = script:Create-MenuButton "✅ Enable Microsoft Store" 260 { 
-        $explPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-        $disallowPath = "$explPath\DisallowRun"
-        
-        if (Test-Path $disallowPath) { Remove-ItemProperty -Path $disallowPath -Name "1" -ErrorAction SilentlyContinue }
-        Set-ItemProperty -Path $explPath -Name "DisallowRun" -Value 0 -Type DWord
-        
-        Stop-Process -Name explorer -Force
-        [System.Windows.Forms.MessageBox]::Show("Microsoft Store Enabled for Current User.")
-    }
-
-    $btn5 = script:Create-MenuButton "🗑️ Uninstall Built-in Apps" 320 { 
-        if ([System.Windows.Forms.MessageBox]::Show("Remove Snipping Tool, Solitaire, and Outlook for this user?", "Uninstall Apps", 1, 48) -eq 1) {
-            Write-Host "Stopping background processes..." -ForegroundColor Yellow
-            Get-Process -Name SnippingTool, ScreenClippingHost, olk, MicrosoftSolitaireCollection -ErrorAction SilentlyContinue | Stop-Process -Force
-            
-            Write-Host "Uninstalling Apps (Current User)..." -ForegroundColor Yellow
-            $apps = @("*ScreenSketch*", "*SolitaireCollection*", "*OutlookForWindows*")
-            foreach ($app in $apps) {
-                Get-AppxPackage -Name $app | Remove-AppxPackage -ErrorAction SilentlyContinue
-            }
-            [System.Windows.Forms.MessageBox]::Show("Snipping Tool, Solitaire, and Outlook completely removed for this user.")
-        }
-    }
-
-    $script:form.Controls.AddRange(@($btnBack, $btn1, $btn2, $btn3, $btn4, $btn5))
-}
-
-# --- FUNCTION 4: SYSTEM CLEANUP MENU ---
+# --- FUNCTION 3: SYSTEM CLEANUP MENU ---
 function script:Show-System-Cleanup {
     $script:form.Controls.Clear()
     $btnBack = script:Create-BackButton { script:Show-Main-Menu }
@@ -295,7 +235,7 @@ function script:Show-System-Cleanup {
     $script:form.Controls.AddRange(@($btnBack, $btnBrowser, $btnStorage, $btnCookies))
 }
 
-# --- FUNCTION 5: INSTALL APPS (RESPONSIVE GRID) ---
+# --- FUNCTION 4: INSTALL APPS (RESPONSIVE GRID) ---
 function script:Show-Install-Apps {
     $script:form.Controls.Clear()
     $btnBack = script:Create-BackButton { script:Show-Main-Menu }
