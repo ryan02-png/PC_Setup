@@ -175,7 +175,6 @@ function script:Show-User-Config {
     }
 
     $btn3 = script:Create-MenuButton "🚫 Disable Microsoft Store" 200 { 
-        # Using DisallowRun policy since MS blocked the standard Store policy on Pro/Home
         $explPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
         $disallowPath = "$explPath\DisallowRun"
         
@@ -183,7 +182,7 @@ function script:Show-User-Config {
         Set-ItemProperty -Path $explPath -Name "DisallowRun" -Value 1 -Type DWord
         
         if (-not (Test-Path $disallowPath)) { New-Item -Path $disallowPath -Force | Out-Null }
-        Set-ItemProperty -Path $disallowPath -Name "BlockStore" -Value "WinStore.App.exe" -Type String
+        Set-ItemProperty -Path $disallowPath -Name "1" -Value "WinStore.App.exe" -Type String
         
         Get-Process -Name WinStore.App -ErrorAction SilentlyContinue | Stop-Process -Force
         Stop-Process -Name explorer -Force
@@ -194,7 +193,7 @@ function script:Show-User-Config {
         $explPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
         $disallowPath = "$explPath\DisallowRun"
         
-        if (Test-Path $disallowPath) { Remove-ItemProperty -Path $disallowPath -Name "BlockStore" -ErrorAction SilentlyContinue }
+        if (Test-Path $disallowPath) { Remove-ItemProperty -Path $disallowPath -Name "1" -ErrorAction SilentlyContinue }
         Set-ItemProperty -Path $explPath -Name "DisallowRun" -Value 0 -Type DWord
         
         Stop-Process -Name explorer -Force
@@ -202,17 +201,16 @@ function script:Show-User-Config {
     }
 
     $btn5 = script:Create-MenuButton "🗑️ Uninstall Built-in Apps" 320 { 
-        if ([System.Windows.Forms.MessageBox]::Show("Remove Snipping Tool, Solitaire, and Outlook for ALL users?", "Uninstall Apps", 1, 48) -eq 1) {
+        if ([System.Windows.Forms.MessageBox]::Show("Remove Snipping Tool, Solitaire, and Outlook for this user?", "Uninstall Apps", 1, 48) -eq 1) {
             Write-Host "Stopping background processes..." -ForegroundColor Yellow
             Get-Process -Name SnippingTool, ScreenClippingHost, olk, MicrosoftSolitaireCollection -ErrorAction SilentlyContinue | Stop-Process -Force
             
-            Write-Host "Uninstalling Apps (All Users)..." -ForegroundColor Yellow
+            Write-Host "Uninstalling Apps (Current User)..." -ForegroundColor Yellow
             $apps = @("*ScreenSketch*", "*SolitaireCollection*", "*OutlookForWindows*")
             foreach ($app in $apps) {
-                # Added -AllUsers to bypass Admin account isolation limits
-                Get-AppxPackage -Name $app -AllUsers | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+                Get-AppxPackage -Name $app | Remove-AppxPackage -ErrorAction SilentlyContinue
             }
-            [System.Windows.Forms.MessageBox]::Show("Snipping Tool, Solitaire, and Outlook completely removed.")
+            [System.Windows.Forms.MessageBox]::Show("Snipping Tool, Solitaire, and Outlook completely removed for this user.")
         }
     }
 
@@ -333,6 +331,7 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🗜️" "WinRAR" { script:Install-App "WinRAR" "RARLab.WinRAR" }
     Add-WidgetBtn "🗜️" "7-Zip" { script:Install-App "7-Zip" "7zip.7zip" }
     Add-WidgetBtn "🖥️" "AnyDesk (Latest)" { script:Install-App "AnyDesk Latest" "AnyDeskSoftwareGmbH.AnyDesk" }
+    Add-WidgetBtn "🎧" "Jabra Direct" { script:Install-App "Jabra Direct" "Jabra.Direct" }
 
     # CUSTOM GITHUB APPS (USING FULL URLS)
     Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
