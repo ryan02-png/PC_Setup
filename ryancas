@@ -62,7 +62,7 @@ function script:Install-App {
 
 # --- HELPER FUNCTION: CUSTOM INSTALLER ---
 function script:Install-CustomApp {
-    param($appName, $fullUrl, $fileName, $isMsi, $installArgs)
+    param($appName, $fullUrl, $fileName, $isMsi, $installArgs, $runAsUser=$false)
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Host "Downloading $appName..." -ForegroundColor Cyan
@@ -81,6 +81,13 @@ function script:Install-CustomApp {
             
             Write-Host "Installing $appName..." -ForegroundColor Cyan
             
+            # De-elevation trick for per-user apps like Viber
+            if ($runAsUser) {
+                Start-Process "explorer.exe" -ArgumentList $tempFile
+                [System.Windows.Forms.MessageBox]::Show("$appName installer has been launched as the standard user. Please complete the setup using the window that just opened.")
+                return
+            }
+
             $hasArgs = ($null -ne $installArgs) -and ($installArgs.Count -gt 0)
 
             if ($isMsi) { 
@@ -435,8 +442,8 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
     Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" }
     
-    # Custom Exe Installer for Viber (Bypasses Winget limitations)
-    Add-WidgetBtn "💬" "Viber" { script:Install-CustomApp "Viber" "https://download.viber.com/desktop/windows/ViberSetup.exe" "ViberSetup.exe" $false $null }
+    # Updated: Added `$true` at the end to trigger the De-elevation trick for Viber
+    Add-WidgetBtn "💬" "Viber" { script:Install-CustomApp "Viber" "https://download.viber.com/desktop/windows/ViberSetup.exe" "ViberSetup.exe" $false $null $true }
     
     Add-WidgetBtn "🐦" "Lark" { script:Install-App "Lark" "LarkTechnologies.Lark" }
     Add-WidgetBtn "📊" "Office 365" { script:Install-App "Microsoft 365" "Microsoft.Office" }
