@@ -401,7 +401,6 @@ function script:Show-Install-Apps {
         $panel.Controls.Add($b)
     }
 
-    # Custom MSI Installer for Chrome (Bypasses Winget limitations)
     Add-WidgetBtn "🌐" "Chrome" { script:Install-CustomApp "Chrome" "https://dl.google.com/chrome/install/GoogleChromeStandaloneEnterprise64.msi" "ChromeEnterprise.msi" $true @("/qn", "/norestart") }
     Add-WidgetBtn "🦊" "Firefox" { script:Install-App "Firefox" "Mozilla.Firefox" }
     Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
@@ -450,13 +449,15 @@ function script:Show-Desktop-Layout {
             # Hide Task View
             Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowTaskViewButton" -Value 0 -Type DWord -ErrorAction SilentlyContinue
             
-            # Hide Win 11 Widgets (Weather/News)
-            Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarDa" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-            
-            # Hide Win 10 News & Interests (Weather)
-            $feedsPath = "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Feeds"
-            if (-not (Test-Path $feedsPath)) { New-Item -Path $feedsPath -Force | Out-Null }
-            Set-ItemProperty -Path $feedsPath -Name "ShellFeedsTaskbarViewMode" -Value 2 -Type DWord -ErrorAction SilentlyContinue
+            # Hide Win 11 Widgets (Global Policy)
+            $widgetPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
+            if (-not (Test-Path $widgetPolicy)) { New-Item -Path $widgetPolicy -Force | Out-Null }
+            Set-ItemProperty -Path $widgetPolicy -Name "AllowNewsAndInterests" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+
+            # Hide Win 10 News & Interests (Global Policy)
+            $feedsPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds"
+            if (-not (Test-Path $feedsPolicy)) { New-Item -Path $feedsPolicy -Force | Out-Null }
+            Set-ItemProperty -Path $feedsPolicy -Name "EnableFeeds" -Value 0 -Type DWord -ErrorAction SilentlyContinue
             
             # Hide Win 11 Chat / Win 10 Meet Now
             Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarMn" -Value 0 -Type DWord -ErrorAction SilentlyContinue
