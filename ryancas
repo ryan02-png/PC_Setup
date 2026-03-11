@@ -18,8 +18,8 @@ $script:textWhite = [System.Drawing.Color]::WhiteSmoke
 # --- INITIALIZE THE WINDOW ---
 $script:form = New-Object System.Windows.Forms.Form
 $script:form.Text = "Ryan Standardization"
-$script:form.Size = "450,600"
-$script:form.MinimumSize = "400,500"
+$script:form.Size = "450,650"
+$script:form.MinimumSize = "400,650"
 $script:form.StartPosition = "CenterScreen"
 $script:form.BackColor = $script:bgDark
 $script:form.ForeColor = $script:textWhite
@@ -133,31 +133,167 @@ function script:Show-Main-Menu {
     $btn2 = script:Create-MenuButton "⚙️ GP Edit Setup" 140 { script:Show-GPO-Menu }
     $btn3 = script:Create-MenuButton "📦 Install Apps" 200 { script:Show-Install-Apps }
     $btn4 = script:Create-MenuButton "🎛️ Control Panel" 260 { Start-Process "control" }
-    
     $btn5 = script:Create-MenuButton "🛠️ System Repair (SFC / DISM)" 320 { 
         if ([System.Windows.Forms.MessageBox]::Show("Repair Windows? (15 mins)", "System Repair", 1, 48) -eq 1) {
             Start-Process powershell.exe -ArgumentList "-NoExit -Command `"Write-Host 'Running DISM...' -F Cyan; DISM /Online /Cleanup-Image /RestoreHealth; Write-Host '`nRunning SFC...' -F Cyan; sfc /scannow`""
         }
     }
-
     $btn6 = script:Create-MenuButton "🧹 System Cleanup" 380 { script:Show-System-Cleanup }
+    $btn7 = script:Create-MenuButton "🖼️ Desktop Layout" 440 { script:Show-Desktop-Layout }
     
-    $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3, $btn4, $btn5, $btn6))
+    $script:form.Controls.AddRange(@($lbl, $btn1, $btn2, $btn3, $btn4, $btn5, $btn6, $btn7))
 }
 
 # --- FUNCTION 2: GPO MENU ---
 function script:Show-GPO-Menu {
     $script:form.Controls.Clear()
     $btnBack = script:Create-BackButton { script:Show-Main-Menu }
-    $btnComp = script:Create-MenuButton "💻 Computer Configuration" 110 { Start-Process "secpol.msc" }
     
-    # Redirects straight to the native Group Policy Editor
-    $btnUser = script:Create-MenuButton "👤 User Configuration" 180 { Start-Process "gpedit.msc" }
+    $btnComp = script:Create-MenuButton "💻 Computer Configuration" 110 { script:Show-Computer-Config }
+    $btnUser = script:Create-MenuButton "👤 User Configuration" 180 { script:Show-User-Config }
     
     $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
 }
 
-# --- FUNCTION 3: SYSTEM CLEANUP MENU ---
+# --- FUNCTION 3: COMPUTER CONFIGURATION MENU ---
+function script:Show-Computer-Config {
+    $script:form.Controls.Clear()
+    $btnBack = script:Create-BackButton { script:Show-GPO-Menu }
+
+    $panel = New-Object System.Windows.Forms.FlowLayoutPanel
+    $panel.Location = "15,60"; $panel.Size = "400,530"
+    $panel.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+    $panel.AutoScroll = $true
+
+    function Add-ListBtn ($text, $action) {
+        $b = New-Object System.Windows.Forms.Button
+        $b.Size = "370,45"
+        $b.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 10)
+        $b.FlatStyle = "Flat"; $b.FlatAppearance.BorderSize = 0
+        $b.BackColor = $script:btnGray; $b.ForeColor = $script:textWhite
+        $b.Text = $text
+        $b.Add_Click($action)
+        $b.Region = script:Get-RoundedRegion $b.Width $b.Height 15
+        $panel.Controls.Add($b)
+    }
+
+    Add-ListBtn "⏱️ Set Boot Timeout to 3 Secs" {
+        Invoke-Expression "bcdedit /timeout 3"
+        [System.Windows.Forms.MessageBox]::Show("Boot setup timeout set to 3 seconds.")
+    }
+
+    Add-ListBtn "🖨️ Turn Off File & Printer Sharing" {
+        Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Enabled False -ErrorAction SilentlyContinue
+        [System.Windows.Forms.MessageBox]::Show("File and Printer Sharing has been disabled in the Windows Firewall.")
+    }
+
+    Add-ListBtn "🔒 Remove Lock Screen Power Button" {
+        $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+        if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+        Set-ItemProperty -Path $regPath -Name "shutdownwithoutlogon" -Value 0 -Type DWord
+        [System.Windows.Forms.MessageBox]::Show("Power button removed from the lock screen.")
+    }
+
+    Add-ListBtn "🚫 Disable PrintScreen Key" {
+        $msg = "In order to take effect, the computer needs to restart.`n`nDisable PrintScreen and restart now?"
+        if ([System.Windows.Forms.MessageBox]::Show($msg, "Restart Required", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Warning) -eq [System.Windows.Forms.DialogResult]::OK) {
+            $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout"
+            $hex = [byte[]](0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x02,0x00,0x00,0x00, 0x00,0x00,0x37,0xE0, 0x00,0x00,0x00,0x00)
+            Set-ItemProperty -Path $regPath -Name "Scancode Map" -Value $hex -Force
+            Restart-Computer -Force
+        }
+    }
+
+    Add-ListBtn "✅ Enable PrintScreen Key" {
+        $msg = "In order to take effect, the computer needs to restart.`n`nEnable PrintScreen and restart now?"
+        if ([System.Windows.Forms.MessageBox]::Show($msg, "Restart Required", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Warning) -eq [System.Windows.Forms.DialogResult]::OK) {
+            $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout"
+            Remove-ItemProperty -Path $regPath -Name "Scancode Map" -ErrorAction SilentlyContinue
+            Restart-Computer -Force
+        }
+    }
+
+    Add-ListBtn "🚫 Disable Bluetooth" {
+        Stop-Service -Name bthserv -Force -ErrorAction SilentlyContinue
+        Set-Service -Name bthserv -StartupType Disabled -ErrorAction SilentlyContinue
+        [System.Windows.Forms.MessageBox]::Show("Bluetooth Support Service has been disabled system-wide.")
+    }
+
+    Add-ListBtn "✅ Enable Bluetooth" {
+        Set-Service -Name bthserv -StartupType Manual -ErrorAction SilentlyContinue
+        Start-Service -Name bthserv -ErrorAction SilentlyContinue
+        [System.Windows.Forms.MessageBox]::Show("Bluetooth Support Service has been enabled.")
+    }
+
+    $script:form.Controls.AddRange(@($btnBack, $panel))
+}
+
+# --- FUNCTION 4: USER CONFIGURATION MENU ---
+function script:Show-User-Config {
+    $script:form.Controls.Clear()
+    $btnBack = script:Create-BackButton { script:Show-GPO-Menu }
+
+    $btn1 = script:Create-MenuButton "🚫 Disable USB Access" 80 { 
+        $regPath = "HKCU:\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
+        if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+        Set-ItemProperty -Path $regPath -Name "Deny_All" -Value 1 -Type DWord
+        Stop-Process -Name explorer -Force
+        [System.Windows.Forms.MessageBox]::Show("USB Access Disabled for Current User.")
+    }
+
+    $btn2 = script:Create-MenuButton "✅ Enable USB Access" 140 { 
+        $regPath = "HKCU:\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
+        if (Test-Path $regPath) { Remove-ItemProperty -Path $regPath -Name "Deny_All" -ErrorAction SilentlyContinue }
+        Stop-Process -Name explorer -Force
+        [System.Windows.Forms.MessageBox]::Show("USB Access Enabled for Current User.")
+    }
+
+    $btn3 = script:Create-MenuButton "🚫 Disable Microsoft Store" 200 { 
+        $edition = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").EditionID
+        if ($edition -match "Enterprise" -or $edition -match "Education") {
+            $regPath = "HKCU:\Software\Policies\Microsoft\WindowsStore"
+            if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+            Set-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -Value 1 -Type DWord
+            Stop-Process -Name explorer -Force
+            [System.Windows.Forms.MessageBox]::Show("Enterprise Edition detected. Store disabled via Registry.")
+        } else {
+            $storeApp = Get-AppxPackage -AllUsers *WindowsStore* | Select-Object -First 1
+            if ($storeApp) {
+                $storePath = "$($storeApp.InstallLocation)\WinStore.App.exe"
+                New-NetFirewallRule -DisplayName "Block_MS_Store" -Direction Outbound -Program $storePath -Action Block -ErrorAction SilentlyContinue
+                [System.Windows.Forms.MessageBox]::Show("Pro/Home Edition detected. Store blocked via Firewall (No Internet Connection).")
+            } else {
+                [System.Windows.Forms.MessageBox]::Show("MS Store executable not found.")
+            }
+        }
+    }
+
+    $btn4 = script:Create-MenuButton "✅ Enable Microsoft Store" 260 { 
+        $regPath = "HKCU:\Software\Policies\Microsoft\WindowsStore"
+        if (Test-Path $regPath) { Remove-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -ErrorAction SilentlyContinue }
+        Remove-NetFirewallRule -DisplayName "Block_MS_Store" -ErrorAction SilentlyContinue
+        Stop-Process -Name explorer -Force
+        [System.Windows.Forms.MessageBox]::Show("Microsoft Store Enabled.")
+    }
+
+    $btn5 = script:Create-MenuButton "🗑️ Uninstall Built-in Apps" 320 { 
+        if ([System.Windows.Forms.MessageBox]::Show("Remove Snipping Tool, Solitaire, and Outlook for this user?", "Uninstall Apps", 1, 48) -eq 1) {
+            Write-Host "Stopping background processes..." -ForegroundColor Yellow
+            Get-Process -Name SnippingTool, ScreenClippingHost, olk, MicrosoftSolitaireCollection -ErrorAction SilentlyContinue | Stop-Process -Force
+            
+            Write-Host "Uninstalling Apps (Current User)..." -ForegroundColor Yellow
+            $apps = @("*ScreenSketch*", "*SolitaireCollection*", "*OutlookForWindows*")
+            foreach ($app in $apps) {
+                Get-AppxPackage -Name $app | Remove-AppxPackage -ErrorAction SilentlyContinue
+            }
+            [System.Windows.Forms.MessageBox]::Show("Snipping Tool, Solitaire, and Outlook completely removed for this user.")
+        }
+    }
+
+    $script:form.Controls.AddRange(@($btnBack, $btn1, $btn2, $btn3, $btn4, $btn5))
+}
+
+# --- FUNCTION 5: SYSTEM CLEANUP MENU ---
 function script:Show-System-Cleanup {
     $script:form.Controls.Clear()
     $btnBack = script:Create-BackButton { script:Show-Main-Menu }
@@ -235,13 +371,13 @@ function script:Show-System-Cleanup {
     $script:form.Controls.AddRange(@($btnBack, $btnBrowser, $btnStorage, $btnCookies))
 }
 
-# --- FUNCTION 4: INSTALL APPS (RESPONSIVE GRID) ---
+# --- FUNCTION 6: INSTALL APPS (RESPONSIVE GRID) ---
 function script:Show-Install-Apps {
     $script:form.Controls.Clear()
     $btnBack = script:Create-BackButton { script:Show-Main-Menu }
 
     $panel = New-Object System.Windows.Forms.FlowLayoutPanel
-    $panel.Location = "15,60"; $panel.Size = "400,480"
+    $panel.Location = "15,60"; $panel.Size = "400,530"
     $panel.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
     $panel.AutoScroll = $true
 
@@ -257,7 +393,6 @@ function script:Show-Install-Apps {
         $panel.Controls.Add($b)
     }
 
-    # WINGET APPS
     Add-WidgetBtn "🌐" "Chrome" { script:Install-App "Chrome" "Google.Chrome" }
     Add-WidgetBtn "🦊" "Firefox" { script:Install-App "Firefox" "Mozilla.Firefox" }
     Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
@@ -273,7 +408,6 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🖥️" "AnyDesk (Latest)" { script:Install-App "AnyDesk Latest" "AnyDeskSoftwareGmbH.AnyDesk" }
     Add-WidgetBtn "🎧" "Jabra Direct" { script:Install-App "Jabra Direct" "Jabra.Direct" }
 
-    # CUSTOM GITHUB APPS (USING FULL URLS)
     Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
     Add-WidgetBtn "👁️" "eyeBeam" { script:Install-CustomApp "eyeBeam" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/eyebeam.exe" "eyebeam.exe" $false @("/S") }
     Add-WidgetBtn "🗄️" "MySQL ODBC 64" { script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/mysql-connector-odbc-5.1.12-winx64.msi" "mysql-odbc-64.msi" $true @("/qn", "/norestart") }
@@ -281,6 +415,57 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "📄" "LightPDF" { script:Install-CustomApp "LightPDF" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/lightpdf-setup.exe" "lightpdf-setup.exe" $false $null }
 
     $script:form.Controls.AddRange(@($btnBack, $panel))
+}
+
+# --- FUNCTION 7: DESKTOP LAYOUT MENU ---
+function script:Show-Desktop-Layout {
+    $script:form.Controls.Clear()
+    $btnBack = script:Create-BackButton { script:Show-Main-Menu }
+
+    $btn1 = script:Create-MenuButton "🖼️ SPM Standardize Layout" 110 { 
+        if ([System.Windows.Forms.MessageBox]::Show("This will clear the desktop, arrange icons, hide the recycle bin, and align the taskbar. Proceed?", "Standardize Layout", 1, 48) -eq 1) {
+            
+            Write-Host "Hiding Recycle Bin..." -ForegroundColor Yellow
+            $rbPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel"
+            if (-not (Test-Path $rbPath)) { New-Item -Path $rbPath -Force | Out-Null }
+            Set-ItemProperty -Path $rbPath -Name "{645FF040-5081-101B-9F08-00AA002F954E}" -Value 1 -Type DWord
+
+            Write-Host "Configuring Taskbar..." -ForegroundColor Yellow
+            # Align Taskbar to Left (Win 11)
+            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarAl" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+            # Hide Search Bar (Win 11)
+            Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+
+            Write-Host "Clearing and Rebuilding Desktop Icons..." -ForegroundColor Yellow
+            # Delete everything from Public and User desktop
+            Remove-Item "$env:PUBLIC\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item "$env:USERPROFILE\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
+
+            # Create specific shortcuts sequentially so they stack
+            $WshShell = New-Object -ComObject WScript.Shell
+            
+            # Chrome
+            $chrome = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\1 - Chrome.lnk")
+            $chrome.TargetPath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+            $chrome.Save()
+
+            # Excel
+            $excel = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\2 - Excel.lnk")
+            $excel.TargetPath = "C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE" 
+            $excel.Save()
+
+            # Word
+            $word = $WshShell.CreateShortcut("$env:USERPROFILE\Desktop\3 - Word.lnk")
+            $word.TargetPath = "C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE"
+            $word.Save()
+
+            # Restart Explorer to apply icon, bin, and taskbar changes
+            Stop-Process -Name explorer -Force
+            [System.Windows.Forms.MessageBox]::Show("SPM Corporate Layout Applied successfully.")
+        }
+    }
+
+    $script:form.Controls.AddRange(@($btnBack, $btn1))
 }
 
 # --- START ---
