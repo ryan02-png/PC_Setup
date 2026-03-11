@@ -435,7 +435,10 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🦊" "Firefox" { script:Install-App "Firefox" "Mozilla.Firefox" }
     Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
     Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" }
-    Add-WidgetBtn "💬" "Viber" { script:Install-App "Viber" "Viber.Viber" }
+    
+    # Updated to $false so the window pops up and doesn't get blocked
+    Add-WidgetBtn "💬" "Viber" { script:Install-App "Viber" "Viber.Viber" $false }
+    
     Add-WidgetBtn "🐦" "Lark" { script:Install-App "Lark" "LarkTechnologies.Lark" }
     Add-WidgetBtn "📊" "Office 365" { script:Install-App "Microsoft 365" "Microsoft.Office" }
     Add-WidgetBtn "💻" "VS Code" { script:Install-App "VS Code" "Microsoft.VisualStudioCode" }
