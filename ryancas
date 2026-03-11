@@ -159,8 +159,9 @@ function script:Show-GPO-Menu {
     
     $btnComp = script:Create-MenuButton "💻 Computer Configuration" 110 { script:Show-Computer-Config }
     $btnUser = script:Create-MenuButton "👤 User Configuration" 180 { script:Show-User-Config }
+    $btnEdit = script:Create-MenuButton "⚙️ Local Group Policy Editor" 250 { Start-Process "gpedit.msc" }
     
-    $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser))
+    $script:form.Controls.AddRange(@($btnBack, $btnComp, $btnUser, $btnEdit))
 }
 
 # --- FUNCTION 3: COMPUTER CONFIGURATION MENU ---
@@ -202,6 +203,41 @@ function script:Show-Computer-Config {
         [System.Windows.Forms.MessageBox]::Show("Power button removed from the lock screen.")
     }
 
+    Add-ListBtn "✅ Add Lock Screen Power Button" {
+        $regPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+        if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+        Set-ItemProperty -Path $regPath -Name "shutdownwithoutlogon" -Value 1 -Type DWord
+        [System.Windows.Forms.MessageBox]::Show("Power button added back to the lock screen.")
+    }
+
+    Add-ListBtn "🚫 Disable Microsoft Store (System-Wide)" { 
+        $edition = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").EditionID
+        if ($edition -match "Enterprise" -or $edition -match "Education") {
+            $regPath = "HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore"
+            if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+            Set-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -Value 1 -Type DWord
+            Stop-Process -Name explorer -Force
+            [System.Windows.Forms.MessageBox]::Show("Enterprise Edition detected. Store disabled via Machine Registry.")
+        } else {
+            $storeApp = Get-AppxPackage -AllUsers *WindowsStore* | Select-Object -First 1
+            if ($storeApp) {
+                $storePath = "$($storeApp.InstallLocation)\WinStore.App.exe"
+                New-NetFirewallRule -DisplayName "Block_MS_Store" -Direction Outbound -Program $storePath -Action Block -ErrorAction SilentlyContinue
+                [System.Windows.Forms.MessageBox]::Show("Pro/Home Edition detected. Store blocked via System Firewall (No Internet Connection).")
+            } else {
+                [System.Windows.Forms.MessageBox]::Show("MS Store executable not found.")
+            }
+        }
+    }
+
+    Add-ListBtn "✅ Enable Microsoft Store (System-Wide)" { 
+        $regPath = "HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore"
+        if (Test-Path $regPath) { Remove-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -ErrorAction SilentlyContinue }
+        Remove-NetFirewallRule -DisplayName "Block_MS_Store" -ErrorAction SilentlyContinue
+        Stop-Process -Name explorer -Force
+        [System.Windows.Forms.MessageBox]::Show("Microsoft Store Enabled.")
+    }
+
     Add-ListBtn "🚫 Disable PrintScreen Key" {
         $msg = "In order to take effect, the computer needs to restart.`n`nDisable PrintScreen and restart now?"
         if ([System.Windows.Forms.MessageBox]::Show($msg, "Restart Required", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Warning) -eq [System.Windows.Forms.DialogResult]::OK) {
@@ -241,7 +277,24 @@ function script:Show-User-Config {
     $script:form.Controls.Clear()
     $btnBack = script:Create-BackButton { script:Show-GPO-Menu }
 
-    $btn1 = script:Create-MenuButton "🚫 Disable USB Access" 80 { 
+    $panel = New-Object System.Windows.Forms.FlowLayoutPanel
+    $panel.Location = "15,60"; $panel.Size = "400,530"
+    $panel.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
+    $panel.AutoScroll = $true
+
+    function Add-ListBtn ($text, $action) {
+        $b = New-Object System.Windows.Forms.Button
+        $b.Size = "370,45"
+        $b.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 10)
+        $b.FlatStyle = "Flat"; $b.FlatAppearance.BorderSize = 0
+        $b.BackColor = $script:btnGray; $b.ForeColor = $script:textWhite
+        $b.Text = $text
+        $b.Add_Click($action)
+        $b.Region = script:Get-RoundedRegion $b.Width $b.Height 15
+        $panel.Controls.Add($b)
+    }
+
+    Add-ListBtn "🚫 Disable USB Access (Current User)" { 
         $regPath = "$script:activeHKCU\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
         if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
         Set-ItemProperty -Path $regPath -Name "Deny_All" -Value 1 -Type DWord
@@ -249,56 +302,33 @@ function script:Show-User-Config {
         [System.Windows.Forms.MessageBox]::Show("USB Access Disabled for Current User.")
     }
 
-    $btn2 = script:Create-MenuButton "✅ Enable USB Access" 140 { 
+    Add-ListBtn "✅ Enable USB Access (Current User)" { 
         $regPath = "$script:activeHKCU\Software\Policies\Microsoft\Windows\RemovableStorageDevices"
         if (Test-Path $regPath) { Remove-ItemProperty -Path $regPath -Name "Deny_All" -ErrorAction SilentlyContinue }
         Stop-Process -Name explorer -Force
         [System.Windows.Forms.MessageBox]::Show("USB Access Enabled for Current User.")
     }
 
-    $btn3 = script:Create-MenuButton "🚫 Disable Microsoft Store" 200 { 
-        $edition = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").EditionID
-        if ($edition -match "Enterprise" -or $edition -match "Education") {
-            $regPath = "$script:activeHKCU\Software\Policies\Microsoft\WindowsStore"
-            if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
-            Set-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -Value 1 -Type DWord
-            Stop-Process -Name explorer -Force
-            [System.Windows.Forms.MessageBox]::Show("Enterprise Edition detected. Store disabled via Registry.")
-        } else {
-            $storeApp = Get-AppxPackage -AllUsers *WindowsStore* | Select-Object -First 1
-            if ($storeApp) {
-                $storePath = "$($storeApp.InstallLocation)\WinStore.App.exe"
-                New-NetFirewallRule -DisplayName "Block_MS_Store" -Direction Outbound -Program $storePath -Action Block -ErrorAction SilentlyContinue
-                [System.Windows.Forms.MessageBox]::Show("Pro/Home Edition detected. Store blocked via Firewall (No Internet Connection).")
-            } else {
-                [System.Windows.Forms.MessageBox]::Show("MS Store executable not found.")
-            }
-        }
-    }
-
-    $btn4 = script:Create-MenuButton "✅ Enable Microsoft Store" 260 { 
-        $regPath = "$script:activeHKCU\Software\Policies\Microsoft\WindowsStore"
-        if (Test-Path $regPath) { Remove-ItemProperty -Path $regPath -Name "RemoveWindowsStore" -ErrorAction SilentlyContinue }
-        Remove-NetFirewallRule -DisplayName "Block_MS_Store" -ErrorAction SilentlyContinue
-        Stop-Process -Name explorer -Force
-        [System.Windows.Forms.MessageBox]::Show("Microsoft Store Enabled.")
-    }
-
-    $btn5 = script:Create-MenuButton "🗑️ Uninstall Built-in Apps" 320 { 
+    Add-ListBtn "🗑️ Uninstall Built-in Apps (Current User)" { 
         if ([System.Windows.Forms.MessageBox]::Show("Remove Snipping Tool, Solitaire, and Outlook for this user?", "Uninstall Apps", 1, 48) -eq 1) {
             Write-Host "Stopping background processes..." -ForegroundColor Yellow
             Get-Process -Name SnippingTool, ScreenClippingHost, olk, MicrosoftSolitaireCollection -ErrorAction SilentlyContinue | Stop-Process -Force
             
             Write-Host "Uninstalling Apps (Current User)..." -ForegroundColor Yellow
-            $apps = @("*ScreenSketch*", "*SolitaireCollection*", "*OutlookForWindows*")
+            $apps = @("*ScreenSketch*", "*SolitaireCollection*", "*OutlookForWindows*", "*communicationsapps*")
+            
             foreach ($app in $apps) {
-                Get-AppxPackage -Name $app | Remove-AppxPackage -ErrorAction SilentlyContinue
+                # Actively locate the exact package name for the user before piping it to removal
+                $packages = Get-AppxPackage -User $wmiUser -Name $app -ErrorAction SilentlyContinue
+                foreach ($pkg in $packages) {
+                    Remove-AppxPackage -Package $pkg.PackageFullName -User $wmiUser -ErrorAction SilentlyContinue
+                }
             }
             [System.Windows.Forms.MessageBox]::Show("Snipping Tool, Solitaire, and Outlook completely removed for this user.")
         }
     }
 
-    $script:form.Controls.AddRange(@($btnBack, $btn1, $btn2, $btn3, $btn4, $btn5))
+    $script:form.Controls.AddRange(@($btnBack, $panel))
 }
 
 # --- FUNCTION 5: SYSTEM CLEANUP MENU ---
@@ -442,30 +472,24 @@ function script:Show-Desktop-Layout {
             Set-ItemProperty -Path $rbPath2 -Name "{645FF040-5081-101B-9F08-00AA002F954E}" -Value 1 -Type DWord
 
             Write-Host "Configuring Taskbar (Hiding Bloat)..." -ForegroundColor Yellow
-            # Align Taskbar to Left (Win 11) & Hide Search Bar
             Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarAl" -Value 0 -Type DWord -ErrorAction SilentlyContinue
             Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Value 0 -Type DWord -ErrorAction SilentlyContinue
             
-            # Hide Task View
             Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowTaskViewButton" -Value 0 -Type DWord -ErrorAction SilentlyContinue
             
-            # Hide Win 11 Widgets (Global Policy)
             $widgetPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
             if (-not (Test-Path $widgetPolicy)) { New-Item -Path $widgetPolicy -Force | Out-Null }
             Set-ItemProperty -Path $widgetPolicy -Name "AllowNewsAndInterests" -Value 0 -Type DWord -ErrorAction SilentlyContinue
 
-            # Hide Win 10 News & Interests (Global Policy)
             $feedsPolicy = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds"
             if (-not (Test-Path $feedsPolicy)) { New-Item -Path $feedsPolicy -Force | Out-Null }
             Set-ItemProperty -Path $feedsPolicy -Name "EnableFeeds" -Value 0 -Type DWord -ErrorAction SilentlyContinue
             
-            # Hide Win 11 Chat / Win 10 Meet Now
             Set-ItemProperty -Path "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarMn" -Value 0 -Type DWord -ErrorAction SilentlyContinue
             $polExpPath = "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
             if (-not (Test-Path $polExpPath)) { New-Item -Path $polExpPath -Force | Out-Null }
             Set-ItemProperty -Path $polExpPath -Name "HideSCAMeetNow" -Value 1 -Type DWord -ErrorAction SilentlyContinue
             
-            # Disable Notification Center
             $polExplorerPath2 = "$script:activeHKCU\Software\Policies\Microsoft\Windows\Explorer"
             if (-not (Test-Path $polExplorerPath2)) { New-Item -Path $polExplorerPath2 -Force | Out-Null }
             Set-ItemProperty -Path $polExplorerPath2 -Name "DisableNotificationCenter" -Value 1 -Type DWord -ErrorAction SilentlyContinue
