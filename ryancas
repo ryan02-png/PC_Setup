@@ -318,7 +318,6 @@ function script:Show-User-Config {
             $apps = @("*ScreenSketch*", "*SolitaireCollection*", "*OutlookForWindows*", "*communicationsapps*")
             
             foreach ($app in $apps) {
-                # Actively locate the exact package name for the user before piping it to removal
                 $packages = Get-AppxPackage -User $wmiUser -Name $app -ErrorAction SilentlyContinue
                 foreach ($pkg in $packages) {
                     Remove-AppxPackage -Package $pkg.PackageFullName -User $wmiUser -ErrorAction SilentlyContinue
@@ -436,8 +435,8 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
     Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" }
     
-    # Updated to $false so the window pops up and doesn't get blocked
-    Add-WidgetBtn "💬" "Viber" { script:Install-App "Viber" "Viber.Viber" $false }
+    # Custom Exe Installer for Viber (Bypasses Winget limitations)
+    Add-WidgetBtn "💬" "Viber" { script:Install-CustomApp "Viber" "https://download.viber.com/desktop/windows/ViberSetup.exe" "ViberSetup.exe" $false $null }
     
     Add-WidgetBtn "🐦" "Lark" { script:Install-App "Lark" "LarkTechnologies.Lark" }
     Add-WidgetBtn "📊" "Office 365" { script:Install-App "Microsoft 365" "Microsoft.Office" }
