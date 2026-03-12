@@ -47,13 +47,14 @@ function script:Get-RoundedRegion {
     return New-Object System.Drawing.Region($path)
 }
 
-# --- HELPER FUNCTION: WINGET INSTALLER ---
+# --- HELPER FUNCTION: WINGET INSTALLER (FORCES MACHINE SCOPE) ---
 function script:Install-App {
-    param($appName, $wingetId, $silent=$true)
+    param($appName, $wingetId, $silent=$true, $machineScope=$true)
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Host "Starting installation for $appName..." -ForegroundColor Cyan
         $args = "--id $wingetId --accept-package-agreements --accept-source-agreements"
+        if ($machineScope) { $args += " --scope machine" }
         if ($silent) { $args += " --silent" } else { $args += " --interactive" }
         Invoke-Expression "winget install $args"
         [System.Windows.Forms.MessageBox]::Show("$appName installation process finished.")
@@ -91,7 +92,6 @@ function script:Install-CustomApp {
                 $publicTemp = "$publicFolder\$fileName"
                 Move-Item -Path $tempFile -Destination $publicTemp -Force
 
-                # Merge arguments into a single string for the task (e.g. "/S")
                 $taskArgs = if ($hasArgs) { $installArgs -join " " } else { "" }
 
                 $action = New-ScheduledTaskAction -Execute $publicTemp -Argument $taskArgs
@@ -102,7 +102,7 @@ function script:Install-CustomApp {
                 Start-ScheduledTask -TaskName "RyanIT_UserInstall"
                 
                 Write-Host "Silent installation running in user session..." -ForegroundColor Yellow
-                Start-Sleep -Seconds 15 # Give it time to extract and install
+                Start-Sleep -Seconds 15 
                 Unregister-ScheduledTask -TaskName "RyanIT_UserInstall" -Confirm:$false | Out-Null
                 
                 [System.Windows.Forms.MessageBox]::Show("$appName silent installation initiated on user profile.")
@@ -461,10 +461,6 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🦊" "Firefox" { script:Install-App "Firefox" "Mozilla.Firefox" }
     Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
     Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" }
-    
-    # TRIGGER THE FULLY AUTOMATED TASK INJECTION
-    Add-WidgetBtn "💬" "Viber" { script:Install-CustomApp "Viber" "https://download.viber.com/desktop/windows/ViberSetup.exe" "ViberSetup.exe" $false @("/S") $true }
-    
     Add-WidgetBtn "🐦" "Lark" { script:Install-App "Lark" "LarkTechnologies.Lark" }
     Add-WidgetBtn "📊" "Office 365" { script:Install-App "Microsoft 365" "Microsoft.Office" }
     Add-WidgetBtn "💻" "VS Code" { script:Install-App "VS Code" "Microsoft.VisualStudioCode" }
