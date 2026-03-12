@@ -24,6 +24,16 @@ $script:btnGray = [System.Drawing.Color]::FromArgb(60, 60, 60)
 $script:textWhite = [System.Drawing.Color]::WhiteSmoke              
 $script:textGold = [System.Drawing.Color]::Gold                     
 
+# --- INITIALIZE THE WINDOW ---
+$script:form = New-Object System.Windows.Forms.Form
+$script:form.Text = "Ryan Standardization"
+$script:form.Size = "450,650"
+$script:form.MinimumSize = "400,650"
+$script:form.StartPosition = "CenterScreen"
+$script:form.BackColor = $script:bgDark
+$script:form.ForeColor = $script:textWhite
+$script:form.Font = New-Object System.Drawing.Font("Segoe UI Emoji", 9)
+
 # --- HELPER FUNCTION: ROUNDED CORNERS MATH ---
 function script:Get-RoundedRegion {
     param($w, $h, $r)
@@ -469,8 +479,7 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🖥️" "AnyDesk (Latest)" { script:Install-App "AnyDesk Latest" "AnyDeskSoftwareGmbH.AnyDesk" }
     Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
     
-    # FIXED TIGHTVNC: Back to Winget, strictly interactive so it doesn't crash on password setup
-    Add-WidgetBtn "🖥️" "TightVNC" { script:Install-App "TightVNC" "TightVNC.TightVNC" $false $true }
+    Add-WidgetBtn "🖥️" "TightVNC" { script:Install-CustomApp "TightVNC" "https://www.tightvnc.com/download/2.8.81/tightvnc-2.8.81-gpl-setup-64bit.msi" "tightvnc.msi" $true $null }
 
     # -- PRODUCTIVITY --
     Add-CategoryHeader "📊 Productivity"
@@ -531,7 +540,6 @@ function script:Show-Desktop-Layout {
 
             Write-Host "Nuking Old Icons (Including OneDrive)..." -ForegroundColor Yellow
             
-            # Target all possible desktop locations to bypass OneDrive sync issues
             $desktopPaths = @(
                 "$env:PUBLIC\Desktop",
                 "$script:activeProfile\Desktop",
@@ -546,8 +554,6 @@ function script:Show-Desktop-Layout {
             Remove-Item "$script:activeLocalAppData\IconCache.db" -Force -ErrorAction SilentlyContinue 
 
             $WshShell = New-Object -ComObject WScript.Shell
-            
-            # Switch to PUBLIC desktop to force standard layout on all users and beat OneDrive
             $targetDesktop = "$env:PUBLIC\Desktop"
             
             # Chrome
