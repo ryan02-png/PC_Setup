@@ -469,8 +469,8 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🖥️" "AnyDesk (Latest)" { script:Install-App "AnyDesk Latest" "AnyDeskSoftwareGmbH.AnyDesk" }
     Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
     
-    # FIXED TIGHTVNC: Bypasses Winget and uses the official MSI download instead
-    Add-WidgetBtn "🖥️" "TightVNC" { script:Install-CustomApp "TightVNC" "https://www.tightvnc.com/download/2.8.81/tightvnc-2.8.81-gpl-setup-64bit.msi" "tightvnc.msi" $true $null }
+    # FIXED TIGHTVNC: Back to Winget, strictly interactive so it doesn't crash on password setup
+    Add-WidgetBtn "🖥️" "TightVNC" { script:Install-App "TightVNC" "TightVNC.TightVNC" $false $true }
 
     # -- PRODUCTIVITY --
     Add-CategoryHeader "📊 Productivity"
@@ -496,7 +496,7 @@ function script:Show-Desktop-Layout {
     $btnBack = script:Create-BackButton { script:Show-Main-Menu }
 
     $btn1 = script:Create-MenuButton "🖼️ SPM Standardize Layout" 110 { 
-        if ([System.Windows.Forms.MessageBox]::Show("This will clear the desktop, arrange icons, hide the recycle bin, and align the taskbar for the CURRENT LOGGED-IN USER. Proceed?", "Standardize Layout", 1, 48) -eq 1) {
+        if ([System.Windows.Forms.MessageBox]::Show("This will wipe the desktop and build the corporate standard. Proceed?", "Standardize Layout", 1, 48) -eq 1) {
             
             Write-Host "Hiding Recycle Bin..." -ForegroundColor Yellow
             $rbPath1 = "$script:activeHKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel"
@@ -529,26 +529,33 @@ function script:Show-Desktop-Layout {
             if (-not (Test-Path $polExplorerPath2)) { New-Item -Path $polExplorerPath2 -Force | Out-Null }
             Set-ItemProperty -Path $polExplorerPath2 -Name "DisableNotificationCenter" -Value 1 -Type DWord -ErrorAction SilentlyContinue
 
-            Write-Host "Clearing and Rebuilding Desktop Icons..." -ForegroundColor Yellow
+            Write-Host "Nuking Old Icons (Including OneDrive)..." -ForegroundColor Yellow
             
-            # Explicitly nuke old shortcuts to prevent OneDrive from restoring them
-            Remove-Item "$script:activeProfile\Desktop\1 - Chrome.lnk" -Force -ErrorAction SilentlyContinue
-            Remove-Item "$script:activeProfile\Desktop\2 - Excel.lnk" -Force -ErrorAction SilentlyContinue
-            Remove-Item "$script:activeProfile\Desktop\3 - Word.lnk" -Force -ErrorAction SilentlyContinue
+            # Target all possible desktop locations to bypass OneDrive sync issues
+            $desktopPaths = @(
+                "$env:PUBLIC\Desktop",
+                "$script:activeProfile\Desktop",
+                "$script:activeProfile\OneDrive\Desktop"
+            )
 
-            Remove-Item "$env:PUBLIC\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
-            Remove-Item "$script:activeProfile\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
+            foreach ($dPath in $desktopPaths) {
+                if (Test-Path $dPath) {
+                    Remove-Item "$dPath\*" -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
             Remove-Item "$script:activeLocalAppData\IconCache.db" -Force -ErrorAction SilentlyContinue 
 
             $WshShell = New-Object -ComObject WScript.Shell
+            
+            # Switch to PUBLIC desktop to force standard layout on all users and beat OneDrive
+            $targetDesktop = "$env:PUBLIC\Desktop"
             
             # Chrome
             $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
             if (-not (Test-Path $chromePath)) { $chromePath = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe" }
             
             if (Test-Path $chromePath) {
-                # Clean Names
-                $chrome = $WshShell.CreateShortcut("$script:activeProfile\Desktop\Chrome.lnk")
+                $chrome = $WshShell.CreateShortcut("$targetDesktop\Chrome.lnk")
                 $chrome.TargetPath = $chromePath
                 $chrome.IconLocation = "$chromePath,0"
                 $chrome.Save()
@@ -569,8 +576,7 @@ function script:Show-Desktop-Layout {
 
             # Excel
             if ($excelPath) {
-                # Clean Names
-                $excel = $WshShell.CreateShortcut("$script:activeProfile\Desktop\Excel.lnk")
+                $excel = $WshShell.CreateShortcut("$targetDesktop\Excel.lnk")
                 $excel.TargetPath = $excelPath 
                 $excel.IconLocation = "$excelPath,0"
                 $excel.Save()
@@ -578,8 +584,7 @@ function script:Show-Desktop-Layout {
 
             # Word
             if ($wordPath) {
-                # Clean Names
-                $word = $WshShell.CreateShortcut("$script:activeProfile\Desktop\Word.lnk")
+                $word = $WshShell.CreateShortcut("$targetDesktop\Word.lnk")
                 $word.TargetPath = $wordPath
                 $word.IconLocation = "$wordPath,0"
                 $word.Save()
