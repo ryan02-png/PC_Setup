@@ -7,7 +7,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     return
 }
 
-# 2. Global Interactive User Targeting (Fixes Admin vs User conflict)
+# 2. Global Interactive User Targeting
 $script:wmiUser = (Get-WmiObject -Class Win32_ComputerSystem).UserName
 $domain, $username = $script:wmiUser -split '\\'
 $script:activeSid = (New-Object System.Security.Principal.NTAccount($domain, $username)).Translate([System.Security.Principal.SecurityIdentifier]).Value
@@ -24,16 +24,6 @@ $script:btnGray = [System.Drawing.Color]::FromArgb(60, 60, 60)
 $script:textWhite = [System.Drawing.Color]::WhiteSmoke              
 $script:textGold = [System.Drawing.Color]::Gold                     
 
-# --- INITIALIZE THE WINDOW ---
-$script:form = New-Object System.Windows.Forms.Form
-$script:form.Text = "Ryan Standardization"
-$script:form.Size = "450,650"
-$script:form.MinimumSize = "400,650"
-$script:form.StartPosition = "CenterScreen"
-$script:form.BackColor = $script:bgDark
-$script:form.ForeColor = $script:textWhite
-$script:form.Font = New-Object System.Drawing.Font("Segoe UI Emoji", 9)
-
 # --- HELPER FUNCTION: ROUNDED CORNERS MATH ---
 function script:Get-RoundedRegion {
     param($w, $h, $r)
@@ -48,27 +38,37 @@ function script:Get-RoundedRegion {
     return New-Object System.Drawing.Region($path)
 }
 
-# --- HELPER FUNCTION: WINGET INSTALLER (WITH SCOPE & SILENT TOGGLES) ---
+# --- INITIALIZE THE WINDOW ---
+$script:form = New-Object System.Windows.Forms.Form
+$script:form.Text = "Ryan Standardization"
+$script:form.Size = "450,650"
+$script:form.MinimumSize = "400,650"
+$script:form.StartPosition = "CenterScreen"
+$script:form.BackColor = $script:bgDark
+$script:form.ForeColor = $script:textWhite
+$script:form.Font = New-Object System.Drawing.Font("Segoe UI Emoji", 9)
+
+# --- HELPER FUNCTION: WINGET INSTALLER (WITH OVERRIDE SUPPORT) ---
 function script:Install-App {
-    param($appName, $wingetId, $silent=$true, $machineScope=$true)
+    param($appName, $wingetId, $silent=$true, $machineScope=$true, $overrideArgs="")
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Host "Starting installation for $appName..." -ForegroundColor Cyan
         $args = "--id $wingetId --accept-package-agreements --accept-source-agreements"
         if ($machineScope) { $args += " --scope machine" }
+        if ($overrideArgs) { $args += " --override `"$overrideArgs`"" }
         if ($silent) { $args += " --silent" } else { $args += " --interactive" }
         Invoke-Expression "winget install $args"
         [System.Windows.Forms.MessageBox]::Show("$appName installation process finished.")
     }
 }
 
-# --- HELPER FUNCTION: CUSTOM INSTALLER (WITH SILENT DE-ELEVATION TRICK) ---
+# --- HELPER FUNCTION: CUSTOM INSTALLER ---
 function script:Install-CustomApp {
     param($appName, $fullUrl, $fileName, $isMsi, $installArgs, $runAsUser=$false)
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Host "Downloading $appName..." -ForegroundColor Cyan
-        
         $tempFile = "$env:TEMP\$fileName"
         
         try {
@@ -84,7 +84,6 @@ function script:Install-CustomApp {
             Write-Host "Installing $appName..." -ForegroundColor Cyan
             $hasArgs = ($null -ne $installArgs) -and ($installArgs.Count -gt 0)
             
-            # Execute SILENTLY as Logged-in User via Scheduled Task
             if ($runAsUser) {
                 $publicFolder = "$env:PUBLIC\Downloads"
                 if (-not (Test-Path $publicFolder)) { New-Item -Path $publicFolder -ItemType Directory -Force | Out-Null }
@@ -136,7 +135,6 @@ function script:Create-MenuButton ($text, $yPos, $action) {
     $btn.FlatAppearance.BorderSize = 0 
     $btn.BackColor = $script:btnGray; $btn.ForeColor = $script:textWhite
     $btn.Add_Click($action)
-    
     $btn.Region = script:Get-RoundedRegion $btn.Width $btn.Height 15
     $btn.Add_SizeChanged({ $this.Region = script:Get-RoundedRegion $this.Width $this.Height 15 })
     return $btn
@@ -473,7 +471,6 @@ function script:Show-Install-Apps {
 
     # -- COMMUNICATIONS --
     Add-CategoryHeader "💬 Communications"
-    # MicroSIP needs Interactive=False, MachineScope=False to bypass the user-scope crash
     Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" $false $false }
     Add-WidgetBtn "🐦" "Lark" { script:Install-App "Lark" "LarkTechnologies.Lark" }
     Add-WidgetBtn "👁️" "eyeBeam" { script:Install-CustomApp "eyeBeam" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/eyebeam.exe" "eyebeam.exe" $false @("/S") }
@@ -482,8 +479,10 @@ function script:Show-Install-Apps {
     Add-CategoryHeader "🖥️ Remote Apps"
     Add-WidgetBtn "🖥️" "AnyDesk (Latest)" { script:Install-App "AnyDesk Latest" "AnyDeskSoftwareGmbH.AnyDesk" }
     Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
-    # TightVNC needs Interactive=False to let you configure the admin password
-    Add-WidgetBtn "🖥️" "TightVNC" { script:Install-App "TightVNC" "TightVNC.TightVNC" $false $true }
+    
+    # FIXED TIGHTVNC: Passes MSI arguments to set default password to 'admin' silently
+    $vncArgs = "/quiet /norestart SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD=admin SET_USECONTROLAUTHENTICATION=1 VALUE_OF_USECONTROLAUTHENTICATION=1 SET_CONTROLPASSWORD=1 VALUE_OF_CONTROLPASSWORD=admin"
+    Add-WidgetBtn "🖥️" "TightVNC" { script:Install-App "TightVNC" "TightVNC.TightVNC" $true $true $vncArgs }
 
     # -- PRODUCTIVITY --
     Add-CategoryHeader "📊 Productivity"
@@ -545,16 +544,18 @@ function script:Show-Desktop-Layout {
             Write-Host "Clearing and Rebuilding Desktop Icons..." -ForegroundColor Yellow
             Remove-Item "$env:PUBLIC\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
             Remove-Item "$script:activeProfile\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item "$script:activeLocalAppData\IconCache.db" -Force -ErrorAction SilentlyContinue # Force icon refresh
 
             $WshShell = New-Object -ComObject WScript.Shell
             
-            # Chrome
+            # Chrome (Added IconLocation to fix blank icons)
             $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
             if (-not (Test-Path $chromePath)) { $chromePath = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe" }
             
             if (Test-Path $chromePath) {
                 $chrome = $WshShell.CreateShortcut("$script:activeProfile\Desktop\1 - Chrome.lnk")
                 $chrome.TargetPath = $chromePath
+                $chrome.IconLocation = "$chromePath,0"
                 $chrome.Save()
             }
 
@@ -571,15 +572,19 @@ function script:Show-Desktop-Layout {
                 if (Test-Path "$p\WINWORD.EXE") { $wordPath = "$p\WINWORD.EXE" }
             }
 
+            # Excel (Added IconLocation to fix blank icons)
             if ($excelPath) {
                 $excel = $WshShell.CreateShortcut("$script:activeProfile\Desktop\2 - Excel.lnk")
                 $excel.TargetPath = $excelPath 
+                $excel.IconLocation = "$excelPath,0"
                 $excel.Save()
             }
 
+            # Word (Added IconLocation to fix blank icons)
             if ($wordPath) {
                 $word = $WshShell.CreateShortcut("$script:activeProfile\Desktop\3 - Word.lnk")
                 $word.TargetPath = $wordPath
+                $word.IconLocation = "$wordPath,0"
                 $word.Save()
             }
 
