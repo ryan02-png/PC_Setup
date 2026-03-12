@@ -478,7 +478,6 @@ function script:Show-Install-Apps {
     Add-CategoryHeader "🖥️ Remote Apps"
     Add-WidgetBtn "🖥️" "AnyDesk (Latest)" { script:Install-App "AnyDesk Latest" "AnyDeskSoftwareGmbH.AnyDesk" }
     Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
-    
     Add-WidgetBtn "🖥️" "TightVNC" { script:Install-CustomApp "TightVNC" "https://www.tightvnc.com/download/2.8.81/tightvnc-2.8.81-gpl-setup-64bit.msi" "tightvnc.msi" $true $null }
 
     # -- PRODUCTIVITY --
