@@ -22,6 +22,7 @@ Add-Type -AssemblyName System.Drawing
 $script:bgDark = [System.Drawing.Color]::FromArgb(30, 30, 30)       
 $script:btnGray = [System.Drawing.Color]::FromArgb(60, 60, 60)      
 $script:textWhite = [System.Drawing.Color]::WhiteSmoke              
+$script:textGold = [System.Drawing.Color]::Gold                     
 
 # --- INITIALIZE THE WINDOW ---
 $script:form = New-Object System.Windows.Forms.Form
@@ -47,7 +48,7 @@ function script:Get-RoundedRegion {
     return New-Object System.Drawing.Region($path)
 }
 
-# --- HELPER FUNCTION: WINGET INSTALLER (FORCES MACHINE SCOPE) ---
+# --- HELPER FUNCTION: WINGET INSTALLER (WITH SCOPE & SILENT TOGGLES) ---
 function script:Install-App {
     param($appName, $wingetId, $silent=$true, $machineScope=$true)
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
@@ -83,9 +84,7 @@ function script:Install-CustomApp {
             Write-Host "Installing $appName..." -ForegroundColor Cyan
             $hasArgs = ($null -ne $installArgs) -and ($installArgs.Count -gt 0)
             
-            # -------------------------------------------------------------
             # Execute SILENTLY as Logged-in User via Scheduled Task
-            # -------------------------------------------------------------
             if ($runAsUser) {
                 $publicFolder = "$env:PUBLIC\Downloads"
                 if (-not (Test-Path $publicFolder)) { New-Item -Path $publicFolder -ItemType Directory -Force | Out-Null }
@@ -108,7 +107,6 @@ function script:Install-CustomApp {
                 [System.Windows.Forms.MessageBox]::Show("$appName silent installation initiated on user profile.")
                 return
             }
-            # -------------------------------------------------------------
 
             if ($isMsi) { 
                 $msiArgs = @("/i", "`"$tempFile`"")
@@ -302,7 +300,7 @@ function script:Show-Computer-Config {
 # --- FUNCTION 4: USER CONFIGURATION MENU ---
 function script:Show-User-Config {
     $script:form.Controls.Clear()
-    $btnBack = script:Create-BackButton { script:Show-Main-Menu }
+    $btnBack = script:Create-BackButton { script:Show-GPO-Menu }
 
     $panel = New-Object System.Windows.Forms.FlowLayoutPanel
     $panel.Location = "15,60"; $panel.Size = "400,530"
@@ -435,7 +433,7 @@ function script:Show-System-Cleanup {
     $script:form.Controls.AddRange(@($btnBack, $btnBrowser, $btnStorage, $btnCookies))
 }
 
-# --- FUNCTION 6: INSTALL APPS (RESPONSIVE GRID) ---
+# --- FUNCTION 6: INSTALL APPS (SORTED CATEGORY GRID) ---
 function script:Show-Install-Apps {
     $script:form.Controls.Clear()
     $btnBack = script:Create-BackButton { script:Show-Main-Menu }
@@ -445,10 +443,20 @@ function script:Show-Install-Apps {
     $panel.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right
     $panel.AutoScroll = $true
 
+    function Add-CategoryHeader ($text) {
+        $lbl = New-Object System.Windows.Forms.Label
+        $lbl.Text = $text
+        $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+        $lbl.ForeColor = $script:textGold
+        $lbl.Size = "370,30"
+        $lbl.Margin = New-Object System.Windows.Forms.Padding(5, 15, 5, 0)
+        $panel.Controls.Add($lbl)
+    }
+
     function Add-WidgetBtn ($emoji, $text, $action) {
         $b = New-Object System.Windows.Forms.Button
         $b.Size = "115,115"
-        $b.Margin = New-Object System.Windows.Forms.Padding(6) 
+        $b.Margin = New-Object System.Windows.Forms.Padding(5) 
         $b.FlatStyle = "Flat"; $b.FlatAppearance.BorderSize = 0
         $b.BackColor = $script:btnGray; $b.ForeColor = $script:textWhite
         $b.Text = "$emoji`n`n$text"; $b.TextAlign = "MiddleCenter"
@@ -457,25 +465,40 @@ function script:Show-Install-Apps {
         $panel.Controls.Add($b)
     }
 
+    # -- WEB BROWSERS --
+    Add-CategoryHeader "🌐 Web Browsers"
     Add-WidgetBtn "🌐" "Chrome" { script:Install-CustomApp "Chrome" "https://dl.google.com/chrome/install/GoogleChromeStandaloneEnterprise64.msi" "ChromeEnterprise.msi" $true @("/qn", "/norestart") }
     Add-WidgetBtn "🦊" "Firefox" { script:Install-App "Firefox" "Mozilla.Firefox" }
     Add-WidgetBtn "🦁" "Brave" { script:Install-App "Brave Browser" "Brave.Brave" }
-    Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" }
-    Add-WidgetBtn "🐦" "Lark" { script:Install-App "Lark" "LarkTechnologies.Lark" }
-    Add-WidgetBtn "📊" "Office 365" { script:Install-App "Microsoft 365" "Microsoft.Office" }
-    Add-WidgetBtn "💻" "VS Code" { script:Install-App "VS Code" "Microsoft.VisualStudioCode" }
-    Add-WidgetBtn "📝" "LibreOffice" { script:Install-App "LibreOffice" "TheDocumentFoundation.LibreOffice" }
-    Add-WidgetBtn "🖥️" "TightVNC" { script:Install-App "TightVNC" "TightVNC.TightVNC" }
-    Add-WidgetBtn "🗜️" "WinRAR" { script:Install-App "WinRAR" "RARLab.WinRAR" }
-    Add-WidgetBtn "🗜️" "7-Zip" { script:Install-App "7-Zip" "7zip.7zip" }
-    Add-WidgetBtn "🖥️" "AnyDesk (Latest)" { script:Install-App "AnyDesk Latest" "AnyDeskSoftwareGmbH.AnyDesk" }
-    Add-WidgetBtn "🎧" "Jabra Direct" { script:Install-App "Jabra Direct" "Jabra.Direct" }
 
-    Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
+    # -- COMMUNICATIONS --
+    Add-CategoryHeader "💬 Communications"
+    # MicroSIP needs Interactive=False, MachineScope=False to bypass the user-scope crash
+    Add-WidgetBtn "📞" "MicroSIP" { script:Install-App "MicroSIP" "MicroSIP.MicroSIP" $false $false }
+    Add-WidgetBtn "🐦" "Lark" { script:Install-App "Lark" "LarkTechnologies.Lark" }
     Add-WidgetBtn "👁️" "eyeBeam" { script:Install-CustomApp "eyeBeam" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/eyebeam.exe" "eyebeam.exe" $false @("/S") }
+
+    # -- REMOTE APPS --
+    Add-CategoryHeader "🖥️ Remote Apps"
+    Add-WidgetBtn "🖥️" "AnyDesk (Latest)" { script:Install-App "AnyDesk Latest" "AnyDeskSoftwareGmbH.AnyDesk" }
+    Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
+    # TightVNC needs Interactive=False to let you configure the admin password
+    Add-WidgetBtn "🖥️" "TightVNC" { script:Install-App "TightVNC" "TightVNC.TightVNC" $false $true }
+
+    # -- PRODUCTIVITY --
+    Add-CategoryHeader "📊 Productivity"
+    Add-WidgetBtn "📊" "Office 365" { script:Install-App "Microsoft 365" "Microsoft.Office" }
+    Add-WidgetBtn "📝" "LibreOffice" { script:Install-App "LibreOffice" "TheDocumentFoundation.LibreOffice" }
+    Add-WidgetBtn "📄" "LightPDF" { script:Install-CustomApp "LightPDF" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/lightpdf-setup.exe" "lightpdf-setup.exe" $false $null }
+
+    # -- UTILITIES & TOOLS --
+    Add-CategoryHeader "🧰 Utilities & Tools"
+    Add-WidgetBtn "💻" "VS Code" { script:Install-App "VS Code" "Microsoft.VisualStudioCode" }
     Add-WidgetBtn "🗄️" "MySQL ODBC 64" { script:Install-CustomApp "MySQL ODBC 5.1 (64-bit)" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/mysql-connector-odbc-5.1.12-winx64.msi" "mysql-odbc-64.msi" $true @("/qn", "/norestart") }
     Add-WidgetBtn "🛡️" "Pritunl" { script:Install-CustomApp "Pritunl" "https://github.com/pritunl/pritunl-client-electron/releases/latest/download/Pritunl.exe" "pritunl.exe" $false $null }
-    Add-WidgetBtn "📄" "LightPDF" { script:Install-CustomApp "LightPDF" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/lightpdf-setup.exe" "lightpdf-setup.exe" $false $null }
+    Add-WidgetBtn "🗜️" "WinRAR" { script:Install-App "WinRAR" "RARLab.WinRAR" }
+    Add-WidgetBtn "🗜️" "7-Zip" { script:Install-App "7-Zip" "7zip.7zip" }
+    Add-WidgetBtn "🎧" "Jabra Direct" { script:Install-App "Jabra Direct" "Jabra.Direct" }
 
     $script:form.Controls.AddRange(@($btnBack, $panel))
 }
