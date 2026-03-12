@@ -38,25 +38,14 @@ function script:Get-RoundedRegion {
     return New-Object System.Drawing.Region($path)
 }
 
-# --- INITIALIZE THE WINDOW ---
-$script:form = New-Object System.Windows.Forms.Form
-$script:form.Text = "Ryan Standardization"
-$script:form.Size = "450,650"
-$script:form.MinimumSize = "400,650"
-$script:form.StartPosition = "CenterScreen"
-$script:form.BackColor = $script:bgDark
-$script:form.ForeColor = $script:textWhite
-$script:form.Font = New-Object System.Drawing.Font("Segoe UI Emoji", 9)
-
-# --- HELPER FUNCTION: WINGET INSTALLER (WITH OVERRIDE SUPPORT) ---
+# --- HELPER FUNCTION: WINGET INSTALLER ---
 function script:Install-App {
-    param($appName, $wingetId, $silent=$true, $machineScope=$true, $overrideArgs="")
+    param($appName, $wingetId, $silent=$true, $machineScope=$true)
     $result = [System.Windows.Forms.MessageBox]::Show("Install $appName?", "Confirmation", [System.Windows.Forms.MessageBoxButtons]::OKCancel, [System.Windows.Forms.MessageBoxIcon]::Question)
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         Write-Host "Starting installation for $appName..." -ForegroundColor Cyan
         $args = "--id $wingetId --accept-package-agreements --accept-source-agreements"
         if ($machineScope) { $args += " --scope machine" }
-        if ($overrideArgs) { $args += " --override `"$overrideArgs`"" }
         if ($silent) { $args += " --silent" } else { $args += " --interactive" }
         Invoke-Expression "winget install $args"
         [System.Windows.Forms.MessageBox]::Show("$appName installation process finished.")
@@ -298,7 +287,7 @@ function script:Show-Computer-Config {
 # --- FUNCTION 4: USER CONFIGURATION MENU ---
 function script:Show-User-Config {
     $script:form.Controls.Clear()
-    $btnBack = script:Create-BackButton { script:Show-GPO-Menu }
+    $btnBack = script:Create-BackButton { script:Show-Main-Menu }
 
     $panel = New-Object System.Windows.Forms.FlowLayoutPanel
     $panel.Location = "15,60"; $panel.Size = "400,530"
@@ -480,9 +469,8 @@ function script:Show-Install-Apps {
     Add-WidgetBtn "🖥️" "AnyDesk (Latest)" { script:Install-App "AnyDesk Latest" "AnyDeskSoftwareGmbH.AnyDesk" }
     Add-WidgetBtn "🖥️" "AnyDesk 5.4.2" { script:Install-CustomApp "AnyDesk 5.4.2" "https://raw.githubusercontent.com/ryan02-png/PC_Setup/main/anydesk-5-4-2.exe" "anydesk-5-4-2.exe" $false @("--install", "C:\Program Files (x86)\AnyDesk", "--start-with-win", "--create-shortcuts", "--create-desktop-icon", "--silent") }
     
-    # FIXED TIGHTVNC: Passes MSI arguments to set default password to 'admin' silently
-    $vncArgs = "/quiet /norestart SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1 SET_PASSWORD=1 VALUE_OF_PASSWORD=admin SET_USECONTROLAUTHENTICATION=1 VALUE_OF_USECONTROLAUTHENTICATION=1 SET_CONTROLPASSWORD=1 VALUE_OF_CONTROLPASSWORD=admin"
-    Add-WidgetBtn "🖥️" "TightVNC" { script:Install-App "TightVNC" "TightVNC.TightVNC" $true $true $vncArgs }
+    # FIXED TIGHTVNC: Bypasses Winget and uses the official MSI download instead
+    Add-WidgetBtn "🖥️" "TightVNC" { script:Install-CustomApp "TightVNC" "https://www.tightvnc.com/download/2.8.81/tightvnc-2.8.81-gpl-setup-64bit.msi" "tightvnc.msi" $true $null }
 
     # -- PRODUCTIVITY --
     Add-CategoryHeader "📊 Productivity"
@@ -542,18 +530,25 @@ function script:Show-Desktop-Layout {
             Set-ItemProperty -Path $polExplorerPath2 -Name "DisableNotificationCenter" -Value 1 -Type DWord -ErrorAction SilentlyContinue
 
             Write-Host "Clearing and Rebuilding Desktop Icons..." -ForegroundColor Yellow
+            
+            # Explicitly nuke old shortcuts to prevent OneDrive from restoring them
+            Remove-Item "$script:activeProfile\Desktop\1 - Chrome.lnk" -Force -ErrorAction SilentlyContinue
+            Remove-Item "$script:activeProfile\Desktop\2 - Excel.lnk" -Force -ErrorAction SilentlyContinue
+            Remove-Item "$script:activeProfile\Desktop\3 - Word.lnk" -Force -ErrorAction SilentlyContinue
+
             Remove-Item "$env:PUBLIC\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
             Remove-Item "$script:activeProfile\Desktop\*" -Recurse -Force -ErrorAction SilentlyContinue
-            Remove-Item "$script:activeLocalAppData\IconCache.db" -Force -ErrorAction SilentlyContinue # Force icon refresh
+            Remove-Item "$script:activeLocalAppData\IconCache.db" -Force -ErrorAction SilentlyContinue 
 
             $WshShell = New-Object -ComObject WScript.Shell
             
-            # Chrome (Added IconLocation to fix blank icons)
+            # Chrome
             $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
             if (-not (Test-Path $chromePath)) { $chromePath = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe" }
             
             if (Test-Path $chromePath) {
-                $chrome = $WshShell.CreateShortcut("$script:activeProfile\Desktop\1 - Chrome.lnk")
+                # Clean Names
+                $chrome = $WshShell.CreateShortcut("$script:activeProfile\Desktop\Chrome.lnk")
                 $chrome.TargetPath = $chromePath
                 $chrome.IconLocation = "$chromePath,0"
                 $chrome.Save()
@@ -572,17 +567,19 @@ function script:Show-Desktop-Layout {
                 if (Test-Path "$p\WINWORD.EXE") { $wordPath = "$p\WINWORD.EXE" }
             }
 
-            # Excel (Added IconLocation to fix blank icons)
+            # Excel
             if ($excelPath) {
-                $excel = $WshShell.CreateShortcut("$script:activeProfile\Desktop\2 - Excel.lnk")
+                # Clean Names
+                $excel = $WshShell.CreateShortcut("$script:activeProfile\Desktop\Excel.lnk")
                 $excel.TargetPath = $excelPath 
                 $excel.IconLocation = "$excelPath,0"
                 $excel.Save()
             }
 
-            # Word (Added IconLocation to fix blank icons)
+            # Word
             if ($wordPath) {
-                $word = $WshShell.CreateShortcut("$script:activeProfile\Desktop\3 - Word.lnk")
+                # Clean Names
+                $word = $WshShell.CreateShortcut("$script:activeProfile\Desktop\Word.lnk")
                 $word.TargetPath = $wordPath
                 $word.IconLocation = "$wordPath,0"
                 $word.Save()
